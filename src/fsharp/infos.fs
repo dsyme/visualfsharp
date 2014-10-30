@@ -474,6 +474,8 @@ type OptionalArgInfo =
         else 
             NotOptional
 
+type ReflectedArgInfo = bool option // None, Some(includeValue)
+
 //-------------------------------------------------------------------------
 // ParamNameAndType, ParamData
 
@@ -490,8 +492,8 @@ type ParamNameAndType =
 [<NoComparison; NoEquality>]
 /// Full information about a parameter returned for use by the type checker and language service.
 type ParamData = 
-    /// ParamData(isParamArray, isOut, optArgInfo, nameOpt, ttype)
-    ParamData of bool * bool * OptionalArgInfo * string option * TType
+    /// ParamData(isParamArray, isOut, optArgInfo, nameOpt, reflArgInfo, ttype)
+    ParamData of bool * bool * OptionalArgInfo * string option * bool option * TType
 
 
 //-------------------------------------------------------------------------
@@ -1192,17 +1194,18 @@ type MethInfo =
                  let isOutArg = (p.IsOut && not p.IsIn)
                  // Note: we get default argument values from VB and other .NET language metadata 
                  let optArgInfo =  OptionalArgInfo.FromILParameter g amap m ilMethInfo.MetadataScope ilMethInfo.DeclaringTypeInst p 
-                 yield (isParamArrayArg, isOutArg, optArgInfo) ] ]
+                 yield (isParamArrayArg, isOutArg, optArgInfo, None) ] ]
 
         | FSMeth(g,_,vref,_) -> 
             GetArgInfosOfMember x.IsCSharpStyleExtensionMember g vref 
             |> List.mapSquared (fun (ty,argInfo) -> 
                 let isParamArrayArg = HasFSharpAttribute g g.attrib_ParamArrayAttribute argInfo.Attribs
+                let reflArgInfo = TryFindFSharpBoolAttributeAssumeFalse  g g.attrib_ReflectedDefinitionAttribute argInfo.Attribs 
                 let isOutArg = HasFSharpAttribute g g.attrib_OutAttribute argInfo.Attribs && isByrefTy g ty
                 let isOptArg = HasFSharpAttribute g g.attrib_OptionalArgumentAttribute argInfo.Attribs
                 // Note: can't specify caller-side default arguments in F#, by design (default is specified on the callee-side) 
                 let optArgInfo = if isOptArg then CalleeSide else NotOptional
-                (isParamArrayArg,isOutArg,optArgInfo))
+                (isParamArrayArg, isOutArg, optArgInfo, reflArgInfo))
 
         | DefaultStructCtor _ -> 
             [[]]
@@ -1213,7 +1216,7 @@ type MethInfo =
             [ [for p in mi.PApplyArray((fun mi -> mi.GetParameters()), "GetParameters", m) do
                 let isParamArrayArg = p.PUntaint((fun px -> (px :> IProvidedCustomAttributeProvider).GetAttributeConstructorArgs(p.TypeProvider.PUntaintNoFailure(id), typeof<System.ParamArrayAttribute>.FullName).IsSome),m)
                 let optArgInfo =  OptionalArgInfoOfProvidedParameter amap m p 
-                yield (isParamArrayArg, p.PUntaint((fun p -> p.IsOut), m), optArgInfo)] ]
+                yield (isParamArrayArg, p.PUntaint((fun p -> p.IsOut), m), optArgInfo, None)] ]
 #endif
 
 
@@ -1312,8 +1315,8 @@ type MethInfo =
 #endif
 
         let paramAttribs = x.GetParamAttribs(amap, m)
-        (paramAttribs,paramNamesAndTypes) ||> List.map2 (List.map2 (fun (isParamArrayArg,isOutArg,optArgInfo) (ParamNameAndType(nmOpt,pty)) -> 
-             ParamData(isParamArrayArg,isOutArg,optArgInfo,nmOpt,pty)))
+        (paramAttribs,paramNamesAndTypes) ||> List.map2 (List.map2 (fun (isParamArrayArg,isOutArg,optArgInfo,reflArgInfo) (ParamNameAndType(nmOpt,pty)) -> 
+             ParamData(isParamArrayArg,isOutArg,optArgInfo,nmOpt,reflArgInfo,pty)))
 
 
     /// Select all the type parameters of the declaring type of a method. 
@@ -1821,7 +1824,7 @@ type PropInfo =
     /// Get the details of the indexer parameters associated with the property
     member x.GetParamDatas(amap,m) = 
         x.GetParamNamesAndTypes(amap,m)
-        |> List.map (fun (ParamNameAndType(nm,pty)) -> ParamData(false,false,NotOptional,nm, pty))
+        |> List.map (fun (ParamNameAndType(nmOpt,pty)) -> ParamData(false, false, NotOptional, nmOpt, None, pty))
 
     /// Get the types of the indexer parameters associated with the property
     member x.GetParamTypes(amap,m) = 
