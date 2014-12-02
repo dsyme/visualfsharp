@@ -1860,7 +1860,7 @@ and CanMemberSigsMatchUpToCheck
                     let calledArgTy = rfinfo.FieldType
                     rfinfo.Name, calledArgTy
             
-            subsumeArg (CalledArg((-1, 0), false, NotOptional, false, Some name, None, calledArgTy)) caller) )) ++ (fun () -> 
+            subsumeArg (CalledArg((-1, 0), false, NotOptional, false, Some name, ReflectedArgInfo.None, calledArgTy)) caller) )) ++ (fun () -> 
         
         // - Always take the return type into account for
         //      -- op_Explicit, op_Implicit

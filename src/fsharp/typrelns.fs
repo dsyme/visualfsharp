@@ -1498,7 +1498,7 @@ type CalledArg =
       IsParamArray : bool
       OptArgInfo : OptionalArgInfo
       IsOutArg: bool
-      ReflArgInfo: bool option
+      ReflArgInfo: ReflectedArgInfo
       NameOpt: string option
       CalledArgumentType : TType }
 
@@ -1595,10 +1595,10 @@ let AdjustCalledArgType (infoReader:InfoReader) isConstraint (calledArg: CalledA
                     // BUG 435170: called arg is Expr<'t> where 't is not delegate - such conversion is not legal -> return original type
                     origArgTy
 
-            elif calledArg.ReflArgInfo.IsSome && isQuotedExprTy g calledArgTy && not (isQuotedExprTy g callerArgTy) then 
+            elif calledArg.ReflArgInfo.AutoQuote && isQuotedExprTy g calledArgTy && not (isQuotedExprTy g callerArgTy) then 
                 destQuotedExprTy g calledArgTy
 
-            elif calledArg.ReflArgInfo.IsSome && isRawQuotedExprTy g calledArgTy && not (isQuotedExprTy g callerArgTy) && not (isRawQuotedExprTy g callerArgTy) then 
+            elif calledArg.ReflArgInfo.AutoQuote && isRawQuotedExprTy g calledArgTy && not (isQuotedExprTy g callerArgTy) && not (isRawQuotedExprTy g callerArgTy) then 
                 g.obj_ty
 
             else calledArgTy

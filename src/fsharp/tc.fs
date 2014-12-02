@@ -8469,8 +8469,8 @@ and TcMethodApplication
 
     let denv = env.DisplayEnv
 
-    let isSimpleFormalArg (isParamArrayArg, isOutArg, optArgInfo: OptionalArgInfo, reflArgInfo) = 
-        not isParamArrayArg && not isOutArg && not optArgInfo.IsOptional && isNone reflArgInfo   
+    let isSimpleFormalArg (isParamArrayArg, isOutArg, optArgInfo: OptionalArgInfo, reflArgInfo: ReflectedArgInfo) = 
+        not isParamArrayArg && not isOutArg && not optArgInfo.IsOptional && not reflArgInfo.AutoQuote   
     
     let callerObjArgTys = objArgs |> List.map (tyOfExpr cenv.g)
 
@@ -8877,17 +8877,21 @@ and TcMethodApplication
            mkCallQuoteToLinqLambdaExpression cenv.g m delegateTy   (Expr.Quote(expr, ref None, false, m, mkQuotedExprTy cenv.g delegateTy))
 
        // auto conversions to quotations (to match auto conversions to LINQ expressions)
-       elif reflArgInfo.IsSome && isQuotedExprTy cenv.g calledArgTy &&  not (isQuotedExprTy cenv.g callerArgTy) then 
-           if reflArgInfo.Value then 
+       elif reflArgInfo.AutoQuote && isQuotedExprTy cenv.g calledArgTy &&  not (isQuotedExprTy cenv.g callerArgTy) then 
+           match reflArgInfo with 
+           | ReflectedArgInfo.Quote true -> 
                mkCallLiftValueWithDefn cenv.g m calledArgTy callerArgExpr
-           else 
+           | ReflectedArgInfo.Quote false -> 
                Expr.Quote(callerArgExpr, ref None, false, m, calledArgTy)
+           | ReflectedArgInfo.None -> failwith "unreachable" // unreachable due to reflArgInfo.AutoQuote condition
 
-       elif reflArgInfo.IsSome && isRawQuotedExprTy cenv.g calledArgTy &&  not (isRawQuotedExprTy cenv.g callerArgTy) then 
-           if reflArgInfo.Value then 
+       elif reflArgInfo.AutoQuote && isRawQuotedExprTy cenv.g calledArgTy &&  not (isRawQuotedExprTy cenv.g callerArgTy) then 
+           match reflArgInfo with 
+           | ReflectedArgInfo.Quote true -> 
                mkCallLiftValueWithDefnRaw cenv.g m calledArgTy callerArgExpr
-           else 
+           | ReflectedArgInfo.Quote false -> 
                Expr.Quote(callerArgExpr, ref None, false, m, calledArgTy)
+           | ReflectedArgInfo.None -> failwith "unreachable" // unreachable due to reflArgInfo.AutoQuote condition
 
 
        // Note: out args do not need to be coerced 
@@ -9103,7 +9107,7 @@ and TcMethodApplication
                         | AssignedPropSetter (pinfo,pminfo,pminst) -> 
                             MethInfoChecks cenv.g cenv.amap true None [objExpr] ad m pminfo
                             let calledArgTy = List.head (List.head (pminfo.GetParamTypes(cenv.amap, m, pminst)))
-                            let argExpr = coerceExpr false calledArgTy None callerArgTy m argExpr
+                            let argExpr = coerceExpr false calledArgTy ReflectedArgInfo.None callerArgTy m argExpr
                             let mut = (if isStructTy cenv.g (tyOfExpr cenv.g objExpr) then DefinitelyMutates else PossiblyMutates)
                             let action = BuildPossiblyConditionalMethodCall cenv env mut m true pminfo NormalValUse pminst [objExpr] [argExpr] |> fst 
                             action, Item.Property (pinfo.PropertyName, [pinfo])
@@ -9112,7 +9116,7 @@ and TcMethodApplication
                             // Get or set instance IL field 
                             ILFieldInstanceChecks  cenv.g cenv.amap ad m finfo
                             let calledArgTy = finfo.FieldType (cenv.amap, m)
-                            let argExpr = coerceExpr false calledArgTy None callerArgTy m argExpr
+                            let argExpr = coerceExpr false calledArgTy ReflectedArgInfo.None callerArgTy m argExpr
                             let action = BuildILFieldSet cenv.g m objExpr finfo argExpr 
                             action, Item.ILField finfo
                         
@@ -9120,7 +9124,7 @@ and TcMethodApplication
                             RecdFieldInstanceChecks cenv.g cenv.amap ad m rfinfo 
                             let calledArgTy = rfinfo.FieldType
                             CheckRecdFieldMutation m denv rfinfo
-                            let argExpr = coerceExpr false calledArgTy None callerArgTy m argExpr
+                            let argExpr = coerceExpr false calledArgTy ReflectedArgInfo.None callerArgTy m argExpr
                             let action = BuildRecdFieldSet cenv.g m objExpr rfinfo argExpr 
                             action, Item.RecdField rfinfo
 

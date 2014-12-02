@@ -65,87 +65,6 @@ type S =
 #endif
 
 
-
-module TestAutoQuoteAtMethodCalls = 
-    open Microsoft.FSharp.Quotations
-
-
-    type C() = 
-        static let cleanup (s:string) = s.Replace(" ","").Replace("\n","").Replace("\r","")
-        static member Plot ([<ReflectedDefinition>] x: Expr<'T>) = 
-            sprintf "%A" x |> cleanup
-
-        static member PlotTwoArg ([<ReflectedDefinition>] x: Expr<'T>, y : int) = 
-            sprintf "%A" (x,y) |> cleanup
-
-        static member PlotThreeArg (w:int, [<ReflectedDefinition>] x: Expr<'T>, y : int) = 
-            sprintf "%A" (w,x,y) |> cleanup
-
-        static member PlotRaw ([<ReflectedDefinition>] x: Expr) = 
-            sprintf "%A" x |> cleanup
-
-        static member PlotParams ([<ReflectedDefinition; System.ParamArray>] x: Expr<int>[]) = 
-            sprintf "%A" x |> cleanup
-
-        static member PlotRawParams ([<ReflectedDefinition; System.ParamArray>] x: Expr[]) = 
-            sprintf "%A" x |> cleanup
-
-        static member RawParams ([<System.ParamArray>] x: Expr[]) = 
-            sprintf "%A" x |> cleanup
-
-        static member PlotEval ([<ReflectedDefinition(true)>] x: Expr<'T>) = 
-            sprintf "%A" x |> cleanup
-
-
-    let shouldEqual  id x y = check id y x
-    let x = 1
-    let y = 1
-    let xb = true
-    let yb = true
-    let testItAll() = 
-        let z = 1
-        let zb = true
-
-        C.Plot (xb && yb || zb)  |> shouldEqual "testd109700" "IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))"
-
-        C.Plot (x + y * z) |> shouldEqual "testd109701" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
-
-        C.PlotRaw (x + y * z) |> shouldEqual "testd109702" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
-
-        C.PlotTwoArg (x + y * z, 108) |> shouldEqual "testd109703" "(Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
-
-        C.PlotThreeArg (107, x + y * z, 108)|> shouldEqual "testd109704" "(107,Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
-
-        C.RawParams () |> shouldEqual "testd109705" "[||]"
-
-        C.RawParams (<@ xb && yb || zb @>, <@ x + y * z @>) |> shouldEqual "testd109706" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams () |> shouldEqual "testd109707" "[||]"
-
-        C.PlotParams (1, 2) |> shouldEqual "testd109708" "[|Value(1);Value(2)|]"
-
-        C.PlotParams (x + y) |> shouldEqual "testd109709" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),PropertyGet(None,y,[])])|]"
-
-        C.PlotRawParams (x + y * z) |> shouldEqual "testd10970A" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams ((xb && yb || zb), (x + y * z)) |> shouldEqual "testd10970B" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams (x + y * z, x + y * z, x + y * z) |> shouldEqual "testd10970C" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams ( [| |]) |> shouldEqual "testd10970D" "[||]"
-
-        C.PlotRawParams ( [| <@@ x + y * z @@> |]) |> shouldEqual "testd10970E" """[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"""
-
-        C.Plot (fun (x,y,z) -> xb && yb || zb) |> shouldEqual "testd10970F" "Lambda(tupledArg,Let(x,TupleGet(tupledArg,0),Let(y,TupleGet(tupledArg,1),Let(z,TupleGet(tupledArg,2),IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))))))"
-
-        C.Plot (fun x -> x) |> shouldEqual "testd109710" "Lambda(x,x)"
-
-        C.Plot (fun x -> x, x+1)  |> shouldEqual "testd109711" "Lambda(x,NewTuple(x,Call(None,op_Addition,[x,Value(1)])))"
-
-        C.PlotEval (xb && yb || zb) |> shouldEqual "testd109712" "WithValue(true,IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb)))"
-
-    testItAll()
-
 module TypedTest = begin 
 
     let x = <@ 1 @>
@@ -2490,6 +2409,173 @@ module QuotationOfResizeArrayIteration =
                  -> true
          |    _ -> false)
         
+
+
+module TestAutoQuoteAtStaticMethodCalls = 
+    open Microsoft.FSharp.Quotations
+
+
+    type C() = 
+        static let cleanup (s:string) = s.Replace(" ","").Replace("\n","").Replace("\r","")
+        static member Plot ([<ReflectedDefinition>] x: Expr<'T>) = 
+            sprintf "%A" x |> cleanup
+
+        static member PlotTwoArg ([<ReflectedDefinition>] x: Expr<'T>, y : int) = 
+            sprintf "%A" (x,y) |> cleanup
+
+        static member PlotThreeArg (w:int, [<ReflectedDefinition>] x: Expr<'T>, y : int) = 
+            sprintf "%A" (w,x,y) |> cleanup
+
+        static member PlotRaw ([<ReflectedDefinition>] x: Expr) = 
+            sprintf "%A" x |> cleanup
+
+        static member PlotParams ([<ReflectedDefinition; System.ParamArray>] x: Expr<int>[]) = 
+            sprintf "%A" x |> cleanup
+
+        static member PlotRawParams ([<ReflectedDefinition; System.ParamArray>] x: Expr[]) = 
+            sprintf "%A" x |> cleanup
+
+        static member RawParams ([<System.ParamArray>] x: Expr[]) = 
+            sprintf "%A" x |> cleanup
+
+        static member PlotEval ([<ReflectedDefinition(true)>] x: Expr<'T>) = 
+            sprintf "%A" x |> cleanup
+
+
+    let shouldEqual  id x y = check id y x
+    let x = 1
+    let y = 1
+    let xb = true
+    let yb = true
+    let testItAll() = 
+        let z = 1
+        let zb = true
+
+        C.Plot (xb && yb || zb)  |> shouldEqual "testd109700" "IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))"
+
+        C.Plot (x + y * z) |> shouldEqual "testd109701" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
+
+        C.PlotRaw (x + y * z) |> shouldEqual "testd109702" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
+
+        C.PlotTwoArg (x + y * z, 108) |> shouldEqual "testd109703" "(Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
+
+        C.PlotThreeArg (107, x + y * z, 108)|> shouldEqual "testd109704" "(107,Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
+
+        C.RawParams () |> shouldEqual "testd109705" "[||]"
+
+        C.RawParams (<@ xb && yb || zb @>, <@ x + y * z @>) |> shouldEqual "testd109706" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        C.PlotRawParams () |> shouldEqual "testd109707" "[||]"
+
+        C.PlotParams (1, 2) |> shouldEqual "testd109708" "[|Value(1);Value(2)|]"
+
+        C.PlotParams (x + y) |> shouldEqual "testd109709" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),PropertyGet(None,y,[])])|]"
+
+        C.PlotRawParams (x + y * z) |> shouldEqual "testd10970A" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        C.PlotRawParams ((xb && yb || zb), (x + y * z)) |> shouldEqual "testd10970B" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        C.PlotRawParams (x + y * z, x + y * z, x + y * z) |> shouldEqual "testd10970C" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        C.PlotRawParams ( [| |]) |> shouldEqual "testd10970D" "[||]"
+
+        C.PlotRawParams ( [| <@@ x + y * z @@> |]) |> shouldEqual "testd10970E" """[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"""
+
+        C.Plot (fun (x,y,z) -> xb && yb || zb) |> shouldEqual "testd10970F" "Lambda(tupledArg,Let(x,TupleGet(tupledArg,0),Let(y,TupleGet(tupledArg,1),Let(z,TupleGet(tupledArg,2),IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))))))"
+
+        C.Plot (fun x -> x) |> shouldEqual "testd109710" "Lambda(x,x)"
+
+        C.Plot (fun x -> x, x+1)  |> shouldEqual "testd109711" "Lambda(x,NewTuple(x,Call(None,op_Addition,[x,Value(1)])))"
+
+        C.PlotEval (xb && yb || zb) |> shouldEqual "testd109712" "WithValue(true,IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb)))"
+
+    testItAll()
+
+module TestAutoQuoteAtInstanceMethodCalls = 
+    open Microsoft.FSharp.Quotations
+
+
+    type C() = 
+        let cleanup (s:string) = s.Replace(" ","").Replace("\n","").Replace("\r","")
+        member __.Plot ([<ReflectedDefinition>] x: Expr<'T>) = 
+            sprintf "%A" x |> cleanup
+
+        member __.PlotTwoArg ([<ReflectedDefinition>] x: Expr<'T>, y : int) = 
+            sprintf "%A" (x,y) |> cleanup
+
+        member __.PlotThreeArg (w:int, [<ReflectedDefinition>] x: Expr<'T>, y : int) = 
+            sprintf "%A" (w,x,y) |> cleanup
+
+        member __.PlotRaw ([<ReflectedDefinition>] x: Expr) = 
+            sprintf "%A" x |> cleanup
+
+        member __.PlotParams ([<ReflectedDefinition; System.ParamArray>] x: Expr<int>[]) = 
+            sprintf "%A" x |> cleanup
+
+        member __.PlotRawParams ([<ReflectedDefinition; System.ParamArray>] x: Expr[]) = 
+            sprintf "%A" x |> cleanup
+
+        member __.Item ([<ReflectedDefinition>] x: Expr<'T>) = 
+            sprintf "%A" x |> cleanup
+
+        member __.RawParams ([<System.ParamArray>] x: Expr[]) = 
+            sprintf "%A" x |> cleanup
+
+        member __.PlotEval ([<ReflectedDefinition(true)>] x: Expr<'T>) = 
+            sprintf "%A" x |> cleanup
+
+
+    let shouldEqual  id x y = check id y x
+    let x = 1
+    let y = 1
+    let xb = true
+    let yb = true
+    let testItAll() = 
+        let z = 1
+        let zb = true
+        let c = C()
+
+        c.Plot (xb && yb || zb)  |> shouldEqual "testd109700" "IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))"
+
+        c.Plot (x + y * z) |> shouldEqual "testd109701" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
+
+        c.[x + y * z] |> shouldEqual "testd109701" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
+
+        c.PlotRaw (x + y * z) |> shouldEqual "testd109702" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
+
+        c.PlotTwoArg (x + y * z, 108) |> shouldEqual "testd109703" "(Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
+
+        c.PlotThreeArg (107, x + y * z, 108)|> shouldEqual "testd109704" "(107,Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
+
+        c.RawParams () |> shouldEqual "testd109705" "[||]"
+
+        c.RawParams (<@ xb && yb || zb @>, <@ x + y * z @>) |> shouldEqual "testd109706" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        c.PlotRawParams () |> shouldEqual "testd109707" "[||]"
+
+        c.PlotParams (1, 2) |> shouldEqual "testd109708" "[|Value(1);Value(2)|]"
+
+        c.PlotParams (x + y) |> shouldEqual "testd109709" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),PropertyGet(None,y,[])])|]"
+
+        c.PlotRawParams (x + y * z) |> shouldEqual "testd10970A" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        c.PlotRawParams ((xb && yb || zb), (x + y * z)) |> shouldEqual "testd10970B" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        c.PlotRawParams (x + y * z, x + y * z, x + y * z) |> shouldEqual "testd10970C" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
+
+        c.PlotRawParams ( [| |]) |> shouldEqual "testd10970D" "[||]"
+
+        c.PlotRawParams ( [| <@@ x + y * z @@> |]) |> shouldEqual "testd10970E" """[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"""
+
+        c.Plot (fun (x,y,z) -> xb && yb || zb) |> shouldEqual "testd10970F" "Lambda(tupledArg,Let(x,TupleGet(tupledArg,0),Let(y,TupleGet(tupledArg,1),Let(z,TupleGet(tupledArg,2),IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))))))"
+
+        c.Plot (fun x -> x) |> shouldEqual "testd109710" "Lambda(x,x)"
+
+        c.Plot (fun x -> x, x+1)  |> shouldEqual "testd109711" "Lambda(x,NewTuple(x,Call(None,op_Addition,[x,Value(1)])))"
+
+        c.PlotEval (xb && yb || zb) |> shouldEqual "testd109712" "WithValue(true,IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb)))"
+
+    testItAll()
 
 let aa =
   if not failures.IsEmpty then (printfn "Test Failed, failures = %A" failures; exit 1) 

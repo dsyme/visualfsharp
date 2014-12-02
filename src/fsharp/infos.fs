@@ -474,7 +474,11 @@ type OptionalArgInfo =
         else 
             NotOptional
 
-type ReflectedArgInfo = bool option // None, Some(includeValue)
+[<RequireQualifiedAccess>]
+type ReflectedArgInfo = 
+    | None 
+    | Quote of evaluateArg: bool 
+    member x.AutoQuote = match x with None -> false | Quote _ -> true
 
 //-------------------------------------------------------------------------
 // ParamNameAndType, ParamData
@@ -493,7 +497,7 @@ type ParamNameAndType =
 /// Full information about a parameter returned for use by the type checker and language service.
 type ParamData = 
     /// ParamData(isParamArray, isOut, optArgInfo, nameOpt, reflArgInfo, ttype)
-    ParamData of bool * bool * OptionalArgInfo * string option * bool option * TType
+    ParamData of bool * bool * OptionalArgInfo * string option * ReflectedArgInfo * TType
 
 
 //-------------------------------------------------------------------------
@@ -1194,13 +1198,16 @@ type MethInfo =
                  let isOutArg = (p.IsOut && not p.IsIn)
                  // Note: we get default argument values from VB and other .NET language metadata 
                  let optArgInfo =  OptionalArgInfo.FromILParameter g amap m ilMethInfo.MetadataScope ilMethInfo.DeclaringTypeInst p 
-                 yield (isParamArrayArg, isOutArg, optArgInfo, None) ] ]
+                 yield (isParamArrayArg, isOutArg, optArgInfo, ReflectedArgInfo.None) ] ]
 
         | FSMeth(g,_,vref,_) -> 
             GetArgInfosOfMember x.IsCSharpStyleExtensionMember g vref 
             |> List.mapSquared (fun (ty,argInfo) -> 
                 let isParamArrayArg = HasFSharpAttribute g g.attrib_ParamArrayAttribute argInfo.Attribs
-                let reflArgInfo = TryFindFSharpBoolAttributeAssumeFalse  g g.attrib_ReflectedDefinitionAttribute argInfo.Attribs 
+                let reflArgInfo = 
+                    match TryFindFSharpBoolAttributeAssumeFalse  g g.attrib_ReflectedDefinitionAttribute argInfo.Attribs  with 
+                    | Some b -> ReflectedArgInfo.Quote b
+                    | None -> ReflectedArgInfo.None
                 let isOutArg = HasFSharpAttribute g g.attrib_OutAttribute argInfo.Attribs && isByrefTy g ty
                 let isOptArg = HasFSharpAttribute g g.attrib_OptionalArgumentAttribute argInfo.Attribs
                 // Note: can't specify caller-side default arguments in F#, by design (default is specified on the callee-side) 
@@ -1216,7 +1223,7 @@ type MethInfo =
             [ [for p in mi.PApplyArray((fun mi -> mi.GetParameters()), "GetParameters", m) do
                 let isParamArrayArg = p.PUntaint((fun px -> (px :> IProvidedCustomAttributeProvider).GetAttributeConstructorArgs(p.TypeProvider.PUntaintNoFailure(id), typeof<System.ParamArrayAttribute>.FullName).IsSome),m)
                 let optArgInfo =  OptionalArgInfoOfProvidedParameter amap m p 
-                yield (isParamArrayArg, p.PUntaint((fun p -> p.IsOut), m), optArgInfo, None)] ]
+                yield (isParamArrayArg, p.PUntaint((fun p -> p.IsOut), m), optArgInfo, ReflectedArgInfo.None)] ]
 #endif
 
 
@@ -1824,7 +1831,7 @@ type PropInfo =
     /// Get the details of the indexer parameters associated with the property
     member x.GetParamDatas(amap,m) = 
         x.GetParamNamesAndTypes(amap,m)
-        |> List.map (fun (ParamNameAndType(nmOpt,pty)) -> ParamData(false, false, NotOptional, nmOpt, None, pty))
+        |> List.map (fun (ParamNameAndType(nmOpt,pty)) -> ParamData(false, false, NotOptional, nmOpt, ReflectedArgInfo.None, pty))
 
     /// Get the types of the indexer parameters associated with the property
     member x.GetParamTypes(amap,m) = 
