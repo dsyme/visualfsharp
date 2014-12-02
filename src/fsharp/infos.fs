@@ -1195,10 +1195,15 @@ type MethInfo =
         | ILMeth(g,ilMethInfo,_) -> 
             [ [ for p in ilMethInfo.ParamMetadata do
                  let isParamArrayArg = TryFindILAttribute g.attrib_ParamArrayAttribute p.CustomAttrs
+                 let reflArgInfo = 
+                     match TryDecodeILAttribute g g.attrib_ReflectedDefinitionAttribute.TypeRef (Some(g.attrib_ReflectedDefinitionAttribute.TypeRef.Scope)) p.CustomAttrs with 
+                     | Some ([ILAttribElem.Bool b ],_) ->  ReflectedArgInfo.Quote b
+                     | Some _ -> ReflectedArgInfo.Quote false
+                     | _ -> ReflectedArgInfo.None
                  let isOutArg = (p.IsOut && not p.IsIn)
                  // Note: we get default argument values from VB and other .NET language metadata 
                  let optArgInfo =  OptionalArgInfo.FromILParameter g amap m ilMethInfo.MetadataScope ilMethInfo.DeclaringTypeInst p 
-                 yield (isParamArrayArg, isOutArg, optArgInfo, ReflectedArgInfo.None) ] ]
+                 yield (isParamArrayArg, isOutArg, optArgInfo, reflArgInfo) ] ]
 
         | FSMeth(g,_,vref,_) -> 
             GetArgInfosOfMember x.IsCSharpStyleExtensionMember g vref 
@@ -1223,7 +1228,12 @@ type MethInfo =
             [ [for p in mi.PApplyArray((fun mi -> mi.GetParameters()), "GetParameters", m) do
                 let isParamArrayArg = p.PUntaint((fun px -> (px :> IProvidedCustomAttributeProvider).GetAttributeConstructorArgs(p.TypeProvider.PUntaintNoFailure(id), typeof<System.ParamArrayAttribute>.FullName).IsSome),m)
                 let optArgInfo =  OptionalArgInfoOfProvidedParameter amap m p 
-                yield (isParamArrayArg, p.PUntaint((fun p -> p.IsOut), m), optArgInfo, ReflectedArgInfo.None)] ]
+                let reflArgInfo = 
+                    match p.PUntaint((fun px -> (px :> IProvidedCustomAttributeProvider).GetAttributeConstructorArgs(p.TypeProvider.PUntaintNoFailure(id), typeof<Microsoft.FSharp.Core.ReflectedDefinitionAttribute>.FullName)),m) with
+                    | Some [ Some (:? bool as b) ] -> ReflectedArgInfo.Quote b
+                    | Some _ -> ReflectedArgInfo.Quote false
+                    | None -> ReflectedArgInfo.None
+                yield (isParamArrayArg, p.PUntaint((fun p -> p.IsOut), m), optArgInfo, reflArgInfo)] ]
 #endif
 
 
