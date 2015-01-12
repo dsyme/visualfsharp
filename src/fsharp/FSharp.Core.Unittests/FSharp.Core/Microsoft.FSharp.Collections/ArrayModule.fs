@@ -425,7 +425,7 @@ type ArrayModule() =
     [<Test>]
     member this.countBy() =
         // countBy should work on empty array
-        Assert.AreEqual([],Array.countBy (fun _ -> failwith "should not be executed") [||])
+        Assert.AreEqual([||], Array.countBy (fun _ -> failwith "should not be executed") [||])
 
         // countBy should not work on null
         CheckThrowsArgumentNullException(fun () -> Array.countBy (fun _ -> failwith "should not be executed") null |> ignore)
@@ -776,7 +776,27 @@ type ArrayModule() =
         Assert.AreEqual(1, Array.last [|1|])
         Assert.AreEqual("2", Array.last [|"1"; "3"; "2"|])
         Assert.AreEqual(["4"], Array.last [|["1"; "3"]; []; ["4"]|])
-        
+    
+    [<Test>]
+    member this.TryLast() =
+        // integers array
+        let IntSeq = [| 1..9 |]
+        let intResult = Array.tryLast IntSeq
+        Assert.AreEqual(9, intResult.Value)
+                 
+        // string array
+        let strResult = Array.tryLast [|"first"; "second";  "third"|]
+        Assert.AreEqual("third", strResult.Value)
+         
+        // Empty array
+        let emptyResult = Array.tryLast Array.empty
+        Assert.IsTrue(emptyResult.IsNone)
+      
+        // null array
+        let nullArr = null:string[]  
+        CheckThrowsArgumentNullException (fun () ->Array.tryLast nullArr |> ignore) 
+        () 
+
     [<Test>]
     member this.ToSeq() =
         let intArr = [| 1..10 |]
@@ -1467,8 +1487,8 @@ type ArrayModule() =
     member this.Singleton() =
         Assert.AreEqual([|null|],Array.singleton null)
         Assert.AreEqual([|"1"|],Array.singleton "1")
-        Assert.AreEqual([|[]|],Array.singleton [])
-        Assert.AreEqual([|[||]|],Array.singleton [||])
+        Assert.AreEqual([|[]|], Array.singleton [])
+        Assert.IsTrue([|[||]|] = Array.singleton [||])
 
 #if FX_NO_TPL_PARALLEL
 #else

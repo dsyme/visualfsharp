@@ -303,6 +303,13 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Head")>]
         val head: list:'T list -> 'T
 
+        /// <summary>Returns a new list whose elements are the corresponding elements
+        /// of the input list paired with the index (from 0) of each element.</summary>
+        /// <param name="list">The input list.</param>
+        /// <returns>The list of indexed elements.</returns>
+        [<CompiledName("Indexed")>]
+        val indexed: list:'T list -> (int * 'T) list
+
         /// <summary>Creates a list by calling the given generator on each index.</summary>
         /// <param name="length">The length of the list to generate.</param>
         /// <param name="initializer">The function to generate an element from an index.</param>
@@ -367,6 +374,13 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Length")>]
         val length: list:'T list -> int
 
+        /// <summary>Returns the last element of the list.
+        /// Return <c>None</c> if no such element exists.</summary>
+        /// <param name="list">The input list.</param>
+        /// <returns>The last element of the list or None.</returns>
+        [<CompiledName("TryLast")>]
+        val tryLast: list:'T list -> 'T option
+
         /// <summary>Builds a new collection whose elements are the results of applying the given function
         /// to each of the elements of the collection.</summary>
         /// <param name="mapping">The function to transform elements from the input list.</param>
@@ -393,6 +407,24 @@ namespace Microsoft.FSharp.Collections
         /// <returns>The list of transformed elements.</returns>
         [<CompiledName("Map3")>]
         val map3: mapping:('T1 -> 'T2 -> 'T3 -> 'U) -> list1:'T1 list -> list2:'T2 list -> list3:'T3 list -> 'U list
+
+        /// <summary>Combines map and fold. Builds a new list whose elements are the results of applying the given function
+        /// to each of the elements of the input list. The function is also used to accumulate a final value.</summary>
+        /// <param name="mapping">The function to transform elements from the input list and accumulate the final value.</param>
+        /// <param name="state">The initial state.</param>
+        /// <param name="list">The input list.</param>
+        /// <returns>The list of transformed elements, and the final accumulated value.</returns>
+        [<CompiledName("MapFold")>]
+        val mapFold<'T,'State,'Result> : mapping:('State -> 'T -> 'Result * 'State) -> state:'State -> list:'T list -> 'Result list * 'State
+
+        /// <summary>Combines map and foldBack. Builds a new list whose elements are the results of applying the given function
+        /// to each of the elements of the input list. The function is also used to accumulate a final value.</summary>
+        /// <param name="mapping">The function to transform elements from the input list and accumulate the final value.</param>
+        /// <param name="list">The input list.</param>
+        /// <param name="state">The initial state.</param>
+        /// <returns>The list of transformed elements, and the final accumulated value.</returns>
+        [<CompiledName("MapFoldBack")>]
+        val mapFoldBack<'T,'State,'Result> : mapping:('T -> 'State -> 'Result * 'State) -> list:'T list -> state:'State -> 'Result list * 'State
 
         /// <summary>Builds a new collection whose elements are the results of applying the given function
         /// to each of the elements of the collection. The integer index passed to the
@@ -504,6 +536,7 @@ namespace Microsoft.FSharp.Collections
         /// <param name="indexMap">The function to map input indices to output indices.</param>
         /// <param name="list">The input list.</param>
         /// <returns>The permuted list.</returns>
+        /// <exception cref="System.ArgumentException">Thrown when indexMap does not produce a valid permutation.</exception>
         [<CompiledName("Permute")>]
         val permute : indexMap:(int -> int) -> list:'T list -> 'T list
 
@@ -625,6 +658,23 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("SplitAt")>]
         val splitAt: index:int -> list:'T list -> ('T list * 'T list)
 
+        /// <summary>Sorts the given list in descending order using keys given by the given projection. Keys are compared using Operators.compare.</summary>
+        ///
+        /// <remarks>This is a stable sort, i.e. the original order of equal elements is preserved.</remarks>
+        /// <param name="projection">The function to transform the list elements into the type to be compared.</param>
+        /// <param name="list">The input list.</param>
+        /// <returns>The sorted list.</returns>
+        [<CompiledName("SortByDescending")>]
+        val inline sortByDescending: projection:('T -> 'Key) -> list:'T list -> 'T list when 'Key : comparison
+
+        /// <summary>Sorts the given list in descending order using Operators.compare.</summary>
+        ///
+        /// <remarks>This is a stable sort, i.e. the original order of equal elements is preserved.</remarks>
+        /// <param name="list">The input list.</param>
+        /// <returns>The sorted list.</returns>
+        [<CompiledName("SortDescending")>]
+        val inline sortDescending: list:'T list -> 'T list when 'T : comparison
+
         /// <summary>Returns the sum of the elements in the list.</summary>
         /// <param name="list">The input list.</param>
         /// <returns>The resulting sum.</returns>
@@ -695,6 +745,14 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("TryHead")>]
         val tryHead: list:'T list -> 'T option
 
+        /// <summary>Returns at most N elements in a new list.</summary>
+        /// <param name="count">The maximum number of items to return.</param>
+        /// <param name="array">The input list.</param>
+        /// <returns>The result list.</returns>
+        /// <exception cref="System.ArgumentException">Thrown when the count is negative.</exception>
+        [<CompiledName("Truncate")>]
+        val truncate: count:int -> list:'T list -> 'T list
+
         /// <summary>Applies the given function to successive elements, returning <c>Some(x)</c> the first
         /// result where function returns <c>Some(x)</c> for some x. If no such element 
         /// exists then return <c>None</c>.</summary>
@@ -750,6 +808,15 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("TryFindIndexBack")>]
         val tryFindIndexBack: predicate:('T -> bool) -> list:'T list -> int option
 
+        /// <summary>Returns a list that contains the elements generated by the given computation.
+        /// The given initial <c>state</c> argument is passed to the element generator.</summary>
+        /// <param name="generator">A function that takes in the current state and returns an option tuple of the next
+        /// element of the list and the next state value.</param>
+        /// <param name="state">The initial state value.</param>
+        /// <returns>The result list.</returns>
+        [<CompiledName("Unfold")>]
+        val unfold<'T,'State> : generator:('State -> ('T * 'State) option) -> state:'State -> 'T list
+
         /// <summary>Splits a list of pairs into two lists.</summary>
         /// <param name="list">The input list.</param>
         /// <returns>Two lists of split elements.</returns>
@@ -769,6 +836,15 @@ namespace Microsoft.FSharp.Collections
         /// <returns>A list containing only the elements that satisfy the predicate.</returns>
         [<CompiledName("Where")>]
         val where: predicate:('T -> bool) -> list:'T list -> 'T list
+
+        /// <summary>Returns a list of sliding windows containing elements drawn from the input
+        /// list. Each window is returned as a fresh array.</summary>
+        /// <param name="windowSize">The number of elements in each window.</param>
+        /// <param name="list">The input list.</param>
+        /// <returns>The result list.</returns>
+        /// <exception cref="System.ArgumentException">Thrown when windowSize is not positive.</exception>
+        [<CompiledName("Windowed")>]
+        val windowed : windowSize:int -> list:'T list -> 'T[] list
 
         /// <summary>Combines the two lists into a list of pairs. The two lists must have equal lengths.</summary>
         /// <param name="list1">The first input list.</param>

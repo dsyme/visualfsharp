@@ -390,7 +390,8 @@ let warningOn err level specificWarnOn =
     List.mem n specificWarnOn ||
     // Some specific warnings are never on by default, i.e. unused variable warnings
     match n with 
-    | 1182 -> false 
+    | 1182 -> false // chkUnusedValue - off by default
+    | 3180 -> false // abImplicitHeapAllocation - off by default
     | _ -> level >= GetWarningLevel err 
 
 let SplitRelatedErrors(err:PhasedError) = 
@@ -2441,8 +2442,10 @@ type TcConfig private (data : TcConfigBuilder,validate:bool) =
                     // the versions mismatch, however they are allowed to mismatch in one case:
                     if primaryAssemblyIsSilverlight  && mscorlibMajorVersion=5   // SL5
                         && (match explicitFscoreVersionToCheckOpt with 
-                            | Some(v1,v2,v3,_) -> v1=2us && v2=3us && v3=5us  // we build SL5 against portable FSCore 2.3.5.0
-                            | None -> true) // the 'None' code path happens after explicit FSCore was already checked, from now on SL5 path is always excepted
+                            | Some(2us,3us,5us,_) // silverlight is supported for FSharp.Core 2.3.5.x and 3.47.x.y 
+                            | Some(3us,47us,_,_) 
+                            | None -> true        // the 'None' code path happens after explicit FSCore was already checked, from now on SL5 path is always excepted
+                            | _ -> false) 
                     then
                         ()
                     else
@@ -3950,6 +3953,10 @@ type TcImports(tcConfigP:TcConfigProvider, initialResolutions:TcAssemblyResoluti
         let phase2 () = 
 #if EXTENSIONTYPING
             ccuinfo.TypeProviders <- tcImports.ImportTypeProviderExtensions (tpApprovals, displayPSTypeProviderSecurityDialogBlockingUI, tcConfig, filename, ilScopeRef, ilModule.ManifestOfAssembly.CustomAttrs.AsList, ccu.Contents, invalidateCcu, m)
+#else
+            // to prevent unused parameter warning
+            ignore tpApprovals
+            ignore displayPSTypeProviderSecurityDialogBlockingUI
 #endif
             [ResolvedImportedAssembly(ccuinfo)]
         phase2
@@ -4076,6 +4083,10 @@ type TcImports(tcConfigP:TcConfigProvider, initialResolutions:TcAssemblyResoluti
 #if EXTENSIONTYPING
                      ccuinfo.TypeProviders <- tcImports.ImportTypeProviderExtensions (tpApprovals, displayPSTypeProviderSecurityDialogBlockingUI, tcConfig, filename, ilScopeRef, ilModule.ManifestOfAssembly.CustomAttrs.AsList, ccu.Contents, invalidateCcu, m)
 #else
+                     // to prevent unused parameter warning
+                     ignore tpApprovals
+                     ignore displayPSTypeProviderSecurityDialogBlockingUI
+
                      ()
 #endif
                 data,ccuinfo,phase2)

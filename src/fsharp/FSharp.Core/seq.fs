@@ -1032,6 +1032,11 @@ namespace Microsoft.FSharp.Collections
             checkNonNull "source" source
             revamp  (IEnumerator.choose f) source
 
+        [<CompiledName("Indexed")>]
+        let indexed source =
+            checkNonNull "source" source
+            mapi (fun i x -> i,x) source
+
         [<CompiledName("Zip")>]
         let zip source1 source2  = 
             checkNonNull "source1" source1
@@ -1210,17 +1215,9 @@ namespace Microsoft.FSharp.Collections
             (source :> seq<'T>)
 
         [<CompiledName("ToList")>]
-        let toList (source : seq<'T>) = 
+        let toList (source : seq<'T>) =
             checkNonNull "source" source
-            match source with 
-            | :? ('T list) as res -> res
-            | :? ('T[]) as res -> List.ofArray res
-            | _ -> 
-                use e = source.GetEnumerator()
-                let mutable res = [] 
-                while e.MoveNext() do
-                    res <- e.Current :: res
-                List.rev res
+            Microsoft.FSharp.Primitives.Basics.List.ofSeq source
 
         // Create a new object to ensure underlying array may not be mutated by a backdoor cast 
         [<CompiledName("OfArray")>]
@@ -1257,6 +1254,11 @@ namespace Microsoft.FSharp.Collections
             let arr = toArray source
             let len = arr.Length
             foldArraySubRight f arr 0 (len - 1) x
+
+        [<CompiledName("FoldBack2")>]
+        let foldBack2<'T1,'T2,'State> f (source1 : seq<'T1>) (source2 : seq<'T2>) (x:'State) =
+            let zipped = zip source1 source2
+            foldBack ((<||) f) zipped x
 
         [<CompiledName("ReduceBack")>]
         let reduceBack f (source : seq<'T>) =
@@ -1312,6 +1314,14 @@ namespace Microsoft.FSharp.Collections
         let findBack f source =
             checkNonNull "source" source
             source |> toArray |> Array.findBack f
+
+        [<CompiledName("ScanBack")>]
+        let scanBack<'T,'State> f (source : seq<'T>) (acc:'State) =
+            checkNonNull "source" source
+            mkDelayedSeq(fun () ->
+                let arr = source |> toArray
+                let res = Array.scanSubRight f arr 0 (arr.Length - 1) acc
+                res :> seq<_>)
 
         [<CompiledName("FindIndex")>]
         let findIndex p (source:seq<_>) = 
@@ -1493,6 +1503,26 @@ namespace Microsoft.FSharp.Collections
                 let array = source |> toArray 
                 Array.stableSortInPlace array
                 array :> seq<_>)
+
+        [<CompiledName("SortWith")>]
+        let sortWith f source =
+            checkNonNull "source" source
+            mkDelayedSeq (fun () ->
+                let array = source |> toArray
+                Array.stableSortInPlaceWith f array
+                array :> seq<_>)
+
+        [<CompiledName("SortByDescending")>]
+        let inline sortByDescending keyf source =
+            checkNonNull "source" source
+            let inline compareDescending a b = compare (keyf b) (keyf a)
+            sortWith compareDescending source
+
+        [<CompiledName("SortDescending")>]
+        let inline sortDescending source =
+            checkNonNull "source" source
+            let inline compareDescending a b = compare b a
+            sortWith compareDescending source
 
         [<CompiledName("CountBy")>]
         let countBy keyf source =
@@ -1734,6 +1764,16 @@ namespace Microsoft.FSharp.Collections
             else
                 invalidArg "source" InputSequenceEmptyString
 
+        [<CompiledName("TryLast")>]
+        let tryLast (source : seq<_>) =
+            checkNonNull "source" source
+            use e = source.GetEnumerator() 
+            if e.MoveNext() then 
+                let mutable res = e.Current
+                while (e.MoveNext()) do res <- e.Current
+                Some res
+            else
+                None
 
         [<CompiledName("ExactlyOne")>]
         let exactlyOne (source : seq<_>) =
@@ -1761,3 +1801,16 @@ namespace Microsoft.FSharp.Collections
             checkNonNull "source" source
             mkDelayedSeq (fun () ->
                 source |> toArray |> Array.permute f :> seq<_>)
+
+        [<CompiledName("MapFold")>]
+        let mapFold<'T,'State,'Result> (f: 'State -> 'T -> 'Result * 'State) acc source =
+            checkNonNull "source" source
+            let arr,state = source |> toArray |> Array.mapFold f acc
+            readonly arr, state
+
+        [<CompiledName("MapFoldBack")>]
+        let mapFoldBack<'T,'State,'Result> (f: 'T -> 'State -> 'Result * 'State) source acc =
+            checkNonNull "source" source
+            let array = source |> toArray
+            let arr,state = Array.mapFoldBack f array acc
+            readonly arr, state

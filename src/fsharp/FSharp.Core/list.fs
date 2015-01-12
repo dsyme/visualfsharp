@@ -28,6 +28,13 @@ namespace Microsoft.FSharp.Collections
             | _ :: tail -> last tail
             | [] -> invalidArg "list" (SR.GetString(SR.inputListWasEmpty))
 
+        [<CompiledName("TryLast")>]
+        let rec tryLast (list: 'T list) =
+            match list with
+            | [x] -> Some x
+            | _ :: tail -> tryLast tail
+            | [] -> None
+
         [<CompiledName("Reverse")>]
         let rev list = Microsoft.FSharp.Primitives.Basics.List.rev list
 
@@ -56,6 +63,28 @@ namespace Microsoft.FSharp.Collections
 
         [<CompiledName("MapIndexed")>]
         let mapi f list = Microsoft.FSharp.Primitives.Basics.List.mapi f list
+
+        [<CompiledName("Indexed")>]
+        let indexed list = Microsoft.FSharp.Primitives.Basics.List.indexed list
+
+        [<CompiledName("MapFold")>]
+        let mapFold<'T,'State,'Result> (f:'State -> 'T -> 'Result * 'State) acc list =
+            Microsoft.FSharp.Primitives.Basics.List.mapFold f acc list
+
+        [<CompiledName("MapFoldBack")>]
+        let mapFoldBack<'T,'State,'Result> (f:'T -> 'State -> 'Result * 'State) list acc =
+            match list with
+            | [] -> [], acc
+            | [h] -> let h',s' = f h acc in [h'], s'
+            | _ ->
+                let f = OptimizedClosures.FSharpFunc<_,_,_>.Adapt(f)
+                let rec loop res list =
+                    match list, res with
+                    | [], _ -> res
+                    | h::t, (list', acc') ->
+                        let h',s' = f.Invoke(h,acc')
+                        loop (h'::list', s') t
+                loop ([], acc) (rev list)
 
         [<CompiledName("Iterate")>]
         let iter f list = Microsoft.FSharp.Primitives.Basics.List.iter f list
@@ -427,6 +456,9 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Unzip3")>]
         let unzip3 x = Microsoft.FSharp.Primitives.Basics.List.unzip3 x
 
+        [<CompiledName("Windowed")>]
+        let windowed n x = Microsoft.FSharp.Primitives.Basics.List.windowed n x
+
         [<CompiledName("Zip")>]
         let zip x1 x2 =  Microsoft.FSharp.Primitives.Basics.List.zip x1 x2
 
@@ -450,7 +482,13 @@ namespace Microsoft.FSharp.Collections
             | _ -> xs
 
         [<CompiledName("SortWith")>]
-        let sortWith cmp xs = Microsoft.FSharp.Primitives.Basics.List.sortWith cmp xs
+        let sortWith cmp xs =
+            match xs with
+            | [] | [_] -> xs
+            | _ ->
+                let array = List.toArray xs
+                Microsoft.FSharp.Primitives.Basics.Array.stableSortInPlaceWith cmp array
+                List.ofArray array
 
         [<CompiledName("SortBy")>]
         let sortBy f xs =
@@ -469,6 +507,16 @@ namespace Microsoft.FSharp.Collections
                 let array = List.toArray xs
                 Microsoft.FSharp.Primitives.Basics.Array.stableSortInPlace array
                 List.ofArray array
+
+        [<CompiledName("SortByDescending")>]
+        let inline sortByDescending f xs =
+            let inline compareDescending a b = compare (f b) (f a)
+            sortWith compareDescending xs
+
+        [<CompiledName("SortDescending")>]
+        let inline sortDescending xs =
+            let inline compareDescending a b = compare b a
+            sortWith compareDescending xs
 
         [<CompiledName("OfSeq")>]
         let ofSeq source = Seq.toList source
@@ -541,4 +589,9 @@ namespace Microsoft.FSharp.Collections
             | [x] -> x
             | []  -> invalidArg "source" LanguagePrimitives.ErrorStrings.InputSequenceEmptyString            
             | _   -> invalidArg "source" (SR.GetString(SR.inputSequenceTooLong))
-                
+
+        [<CompiledName("Truncate")>]
+        let truncate count list = Microsoft.FSharp.Primitives.Basics.List.truncate count list
+
+        [<CompiledName("Unfold")>]
+        let unfold<'T,'State> (f:'State -> ('T*'State) option) (s:'State) = Microsoft.FSharp.Primitives.Basics.List.unfold f s

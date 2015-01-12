@@ -385,6 +385,7 @@ namespace Microsoft.FSharp.Collections
         /// <param name="source1">The first input sequence.</param>
         /// <param name="source2">The second input sequence.</param>
         /// <returns>The final state value.</returns>
+        /// <exception cref="System.ArgumentNullException">Thrown when the either of the input sequences is null.</exception>
         [<CompiledName("Fold2")>]
         val fold2<'T1,'T2,'State> : folder:('State -> 'T1 -> 'T2 -> 'State) -> state:'State -> source1:seq<'T1> -> source2:seq<'T2> -> 'State
 
@@ -398,6 +399,19 @@ namespace Microsoft.FSharp.Collections
         /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
         [<CompiledName("FoldBack")>]
         val foldBack<'T,'State> : folder:('T -> 'State -> 'State) -> source:seq<'T> -> state:'State -> 'State
+
+        /// <summary>Applies a function to corresponding elements of two collections, starting from the end of the shorter collection,
+        /// threading an accumulator argument through the computation. The two sequences need not have equal lengths.
+        /// If the input function is <c>f</c> and the elements are <c>i0...iN</c> and <c>j0...jM</c>, N &lt; M
+        /// then computes <c>f i0 j0 (... (f iN jN s)...)</c>.</summary>
+        /// <param name="folder">The function to update the state given the input elements.</param>
+        /// <param name="source1">The first input sequence.</param>
+        /// <param name="source2">The second input sequence.</param>
+        /// <param name="state">The initial state.</param>
+        /// <returns>The final state value.</returns>
+        /// <exception cref="System.ArgumentNullException">Thrown when the either of the input sequences is null.</exception>
+        [<CompiledName("FoldBack2")>]
+        val foldBack2<'T1,'T2,'State> : folder:('T1 -> 'T2 -> 'State -> 'State) -> source1:seq<'T1> -> source2:seq<'T2> -> state:'State -> 'State
 
         /// <summary>Tests if all elements of the sequence satisfy the given predicate.</summary>
         ///
@@ -473,6 +487,17 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Last")>]
         val last: source:seq<'T> -> 'T
 
+        /// <summary>Returns the last element of the sequence.
+        /// Return <c>None</c> if no such element exists.</summary>
+        ///
+        /// <param name="source">The input sequence.</param>
+        ///
+        /// <returns>The last element of the sequence or None.</returns>
+        ///
+        /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+        [<CompiledName("TryLast")>]
+        val tryLast: source:seq<'T> -> 'T option
+
         /// <summary>Returns the only element of the sequence.</summary>
         ///
         /// <param name="source">The input sequence.</param>
@@ -493,6 +518,14 @@ namespace Microsoft.FSharp.Collections
         /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
         [<CompiledName("IsEmpty")>]
         val isEmpty: source:seq<'T> -> bool
+
+        /// <summary>Builds a new collection whose elements are the corresponding elements of the input collection
+        /// paired with the integer index (from 0) of each element.</summary>
+        /// <param name="source">The input sequence.</param>
+        /// <returns>The result sequence.</returns>
+        /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+        [<CompiledName("Indexed")>]
+        val indexed: source:seq<'T> -> seq<int * 'T>
 
         /// <summary>Generates a new sequence which, when iterated, will return successive
         /// elements by calling the given function, up to the given count.  Each element is saved after its
@@ -619,6 +652,30 @@ namespace Microsoft.FSharp.Collections
         /// <exception cref="System.ArgumentNullException">Thrown when either of the input sequences is null.</exception>
         [<CompiledName("Map2")>]
         val map2: mapping:('T1 -> 'T2 -> 'U) -> source1:seq<'T1> -> source2:seq<'T2> -> seq<'U>
+
+        /// <summary>Combines map and fold. Builds a new collection whose elements are the results of applying the given function
+        /// to each of the elements of the collection. The function is also used to accumulate a final value.</summary>
+        /// <remarks>This function digests the whole initial sequence as soon as it is called. As a result this function should
+        /// not be used with large or infinite sequences.</remarks>
+        /// <param name="mapping">The function to transform elements from the input collection and accumulate the final value.</param>
+        /// <param name="state">The initial state.</param>
+        /// <param name="array">The input collection.</param>
+        /// <exception cref="System.ArgumentNullException">Thrown when the input collection is null.</exception>
+        /// <returns>The collection of transformed elements, and the final accumulated value.</returns>
+        [<CompiledName("MapFold")>]
+        val mapFold<'T,'State,'Result> : mapping:('State -> 'T -> 'Result * 'State) -> state:'State -> source:seq<'T> -> seq<'Result> * 'State
+
+        /// <summary>Combines map and foldBack. Builds a new collection whose elements are the results of applying the given function
+        /// to each of the elements of the collection. The function is also used to accumulate a final value.</summary>
+        /// <remarks>This function digests the whole initial sequence as soon as it is called. As a result this function should
+        /// not be used with large or infinite sequences.</remarks>
+        /// <param name="mapping">The function to transform elements from the input collection and accumulate the final value.</param>
+        /// <param name="array">The input collection.</param>
+        /// <param name="state">The initial state.</param>
+        /// <exception cref="System.ArgumentNullException">Thrown when the input collection is null.</exception>
+        /// <returns>The collection of transformed elements, and the final accumulated value.</returns>
+        [<CompiledName("MapFoldBack")>]
+        val mapFoldBack<'T,'State,'Result> : mapping:('T -> 'State -> 'Result * 'State) -> source:seq<'T> -> state:'State -> seq<'Result> * 'State
 
         /// <summary>Builds a new collection whose elements are the results of applying the given function
         /// to the corresponding triples of elements from the three sequences. If one input sequence if shorter than
@@ -783,12 +840,17 @@ namespace Microsoft.FSharp.Collections
         /// <summary>Returns a sequence with all elements permuted according to the
         /// specified permutation.</summary>
         ///
+        /// <remarks>Note that this function returns a sequence that digests the whole initial sequence as soon as
+        /// that sequence is iterated. As a result this function should not be used with
+        /// large or infinite sequences.</remarks>
+        ///
         /// <param name="indexMap">The function that maps input indices to output indices.</param>
         /// <param name="source">The input sequence.</param>
         ///
         /// <returns>The result sequence.</returns>
         ///
         /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+        /// <exception cref="System.ArgumentException">Thrown when indexMap does not produce a valid permutation.</exception>
         [<CompiledName("Permute")>]
         val permute: indexMap:(int -> int) -> source:seq<'T> -> seq<'T>
 
@@ -873,6 +935,18 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Scan")>]
         val scan<'T,'State> : folder:('State -> 'T -> 'State) -> state:'State -> source:seq<'T> -> seq<'State>
 
+        /// <summary>Like <c>foldBack</c>, but returns the sequence of intermediary and final results.</summary>
+        /// <remarks>This function returns a sequence that digests the whole initial sequence as soon as that
+        /// sequence is iterated. As a result this function should not be used with large or infinite sequences.
+        /// </remarks>
+        /// <param name="folder">A function that updates the state with each element from the sequence.</param>
+        /// <param name="source">The input sequence.</param>
+        /// <param name="state">The initial state.</param>
+        /// <returns>The resulting sequence of computed states.</returns>
+        /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+        [<CompiledName("ScanBack")>]
+        val scanBack<'T,'State> : folder:('T -> 'State -> 'State) -> source:seq<'T> -> state:'State -> seq<'State>
+
         /// <summary>Returns a sequence that yields one item only.</summary>
         ///
         /// <param name="value">The input item.</param>
@@ -924,6 +998,19 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Sort")>]
         val sort : source:seq<'T> -> seq<'T> when 'T : comparison
 
+        /// <summary>Yields a sequence ordered using the given comparison function.</summary>
+        /// <remarks>This function returns a sequence that digests the whole initial sequence as soon as
+        /// that sequence is iterated. As a result this function should not be used with
+        /// large or infinite sequences. The function makes no assumption on the ordering of the original
+        /// sequence.
+        ///
+        /// This is a stable sort, that is the original order of equal elements is preserved.</remarks>
+        /// <param name="comparer">The function to compare the collection elements.</param>
+        /// <param name="list">The input sequence.</param>
+        /// <returns>The result sequence.</returns>
+        [<CompiledName("SortWith")>]
+        val sortWith : comparer:('T -> 'T -> int) -> source:seq<'T> -> seq<'T>
+
         /// <summary>Applies a key-generating function to each element of a sequence and yield a sequence ordered
         /// by keys.  The keys are compared using generic comparison as implemented by <c>Operators.compare</c>.</summary> 
         /// 
@@ -942,6 +1029,42 @@ namespace Microsoft.FSharp.Collections
         /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
         [<CompiledName("SortBy")>]
         val sortBy : projection:('T -> 'Key) -> source:seq<'T> -> seq<'T> when 'Key : comparison 
+
+        /// <summary>Yields a sequence ordered descending by keys.</summary>
+        /// 
+        /// <remarks>This function returns a sequence that digests the whole initial sequence as soon as 
+        /// that sequence is iterated. As a result this function should not be used with 
+        /// large or infinite sequences. The function makes no assumption on the ordering of the original 
+        /// sequence.
+        ///
+        /// This is a stable sort, that is the original order of equal elements is preserved.</remarks>
+        ///
+        /// <param name="source">The input sequence.</param>
+        ///
+        /// <returns>The result sequence.</returns>
+        ///
+        /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+        [<CompiledName("SortDescending")>]
+        val inline sortDescending : source:seq<'T> -> seq<'T> when 'T : comparison
+
+        /// <summary>Applies a key-generating function to each element of a sequence and yield a sequence ordered
+        /// descending by keys.  The keys are compared using generic comparison as implemented by <c>Operators.compare</c>.</summary> 
+        /// 
+        /// <remarks>This function returns a sequence that digests the whole initial sequence as soon as 
+        /// that sequence is iterated. As a result this function should not be used with 
+        /// large or infinite sequences. The function makes no assumption on the ordering of the original 
+        /// sequence.
+        ///
+        /// This is a stable sort, that is the original order of equal elements is preserved.</remarks>
+        ///
+        /// <param name="projection">A function to transform items of the input sequence into comparable keys.</param>
+        /// <param name="source">The input sequence.</param>
+        ///
+        /// <returns>The result sequence.</returns>
+        ///
+        /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
+        [<CompiledName("SortByDescending")>]
+        val inline sortByDescending : projection:('T -> 'Key) -> source:seq<'T> -> seq<'T> when 'Key : comparison
 
         /// <summary>Returns the sum of the elements in the sequence.</summary>
         ///
@@ -1125,16 +1248,13 @@ namespace Microsoft.FSharp.Collections
         [<CompiledName("Unfold")>]
         val unfold   : generator:('State -> ('T * 'State) option) -> state:'State -> seq<'T>
 
-        /// <summary>Returns a sequence that yields sliding windows of containing elements drawn from the input
+        /// <summary>Returns a sequence that yields sliding windows containing elements drawn from the input
         /// sequence. Each window is returned as a fresh array.</summary>
-        ///
         /// <param name="windowSize">The number of elements in each window.</param>
         /// <param name="source">The input sequence.</param>
-        ///
         /// <returns>The result sequence.</returns>
-        ///
         /// <exception cref="System.ArgumentNullException">Thrown when the input sequence is null.</exception>
-        /// <exception cref="System.ArgumentException">Thrown when the input sequence is empty.</exception>
+        /// <exception cref="System.ArgumentException">Thrown when windowSize is not positive.</exception>
         [<CompiledName("Windowed")>]
         val windowed: windowSize:int -> source:seq<'T> -> seq<'T[]>
 
