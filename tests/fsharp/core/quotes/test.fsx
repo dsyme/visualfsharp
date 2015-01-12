@@ -2497,6 +2497,7 @@ module TestAutoQuoteAtStaticMethodCalls =
 
 module TestAutoQuoteAtInstanceMethodCalls = 
     open Microsoft.FSharp.Quotations
+    open System.Runtime.CompilerServices
 
 
     type C() = 
@@ -2528,7 +2529,32 @@ module TestAutoQuoteAtInstanceMethodCalls =
         member __.PlotEval ([<ReflectedDefinition(true)>] x: Expr<'T>) = 
             sprintf "%A" x |> cleanup
 
+        override __.ToString() = "C"
 
+    [<Extension>]
+    module CSharpStyleExtensionMember = 
+        let cleanup (s:string) = s.Replace(" ","").Replace("\n","").Replace("\r","")
+        [<Extension>]
+        type CExtMem() = 
+            [<Extension>]
+            static member PlotCSharpStyleExtMem (this: C, [<ReflectedDefinition>] x: Expr<'T>) = 
+                sprintf "%A" x |> cleanup
+
+            // Adding 'ReflectedDefinition' to an argument that doesn't have type Expr<'T> is ignored (no error or warning is given at declaration or use)
+            [<Extension>]
+            static member PlotCSharpStyleExtMemNoExpr (this: C, [<ReflectedDefinition>] x: 'T) = 
+                sprintf "%A" x |> cleanup
+
+            // Adding 'ReflectedDefinition' to the 'this' argument of a C#-style extension member is ignored. 
+            //
+            //[<Extension>]
+            //static member PlotCSharpStyleExtMemWithReflectedThis ([<ReflectedDefinition>] this: Expr<C>, [<ReflectedDefinition>] x: Expr<'T>) = 
+            //    sprintf "%A" (this, x) |> cleanup
+            [<Extension>]
+            static member PlotCSharpStyleExtMemWithIgnoredReflectedThis ([<ReflectedDefinition>] this: C, [<ReflectedDefinition>] x: Expr<'T>) = 
+                sprintf "%A" (this, x) |> cleanup
+
+    open CSharpStyleExtensionMember
     let shouldEqual  id x y = check id y x
     let x = 1
     let y = 1
@@ -2578,6 +2604,12 @@ module TestAutoQuoteAtInstanceMethodCalls =
         c.Plot (fun x -> x, x+1)  |> shouldEqual "testd109711" "Lambda(x,NewTuple(x,Call(None,op_Addition,[x,Value(1)])))"
 
         c.PlotEval (xb && yb || zb) |> shouldEqual "testd109712" "WithValue(true,IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb)))"
+
+        c.PlotCSharpStyleExtMem (xb && yb || zb)  |> shouldEqual "testd109713" "IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))"
+
+        c.PlotCSharpStyleExtMemNoExpr (xb && yb || zb)  |> shouldEqual "testdoqhwm" "true"
+
+        c.PlotCSharpStyleExtMemWithIgnoredReflectedThis (xb && yb || zb)  |> shouldEqual "testd109714" "(C,IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb)))"
 
     testItAll()
 
