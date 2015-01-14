@@ -8527,11 +8527,15 @@ and TcMethodApplicationThen
 
     PropagateThenTcDelayed cenv overallTy env tpenv mWholeExpr (MakeApplicableExprNoFlex cenv expr) exprty atomicFlag delayed 
 
-and GetNewInferenceTypeForMethodArg cenv x =
+/// Infer initial type information at the callsite from the syntax of an argument, prior to overload resolution.
+and GetNewInferenceTypeForMethodArg cenv env tpenv x =
     match x with 
-    | SynExprParen(a,_,_,_) -> GetNewInferenceTypeForMethodArg cenv a
-    | SynExpr.AddressOf(true,a,_,_) -> mkByrefTy cenv.g (GetNewInferenceTypeForMethodArg cenv a)
-    | SynExpr.Lambda(_,_,_,a,_) -> (NewInferenceType () --> GetNewInferenceTypeForMethodArg cenv a)
+    | SynExprParen(a,_,_,_) -> GetNewInferenceTypeForMethodArg cenv env tpenv a
+    | SynExpr.AddressOf(true,a,_,_) -> mkByrefTy cenv.g (GetNewInferenceTypeForMethodArg cenv env tpenv a)
+    | SynExpr.Lambda(_,_,_,a,_) -> mkFunTy (NewInferenceType ()) (GetNewInferenceTypeForMethodArg cenv env tpenv a)
+    | SynExpr.Quote(_,raw,a,_,_) -> 
+        if raw then mkRawQuotedExprTy cenv.g
+        else mkQuotedExprTy cenv.g (GetNewInferenceTypeForMethodArg cenv env tpenv a)
     | _ -> NewInferenceType ()
 
 /// Method calls, property lookups, attribute constructions etc. get checked through here 
@@ -8558,8 +8562,8 @@ and TcMethodApplication
 
     let denv = env.DisplayEnv
 
-    let isSimpleFormalArg (isParamArrayArg, isOutArg, optArgInfo: OptionalArgInfo, reflArgInfo: ReflectedArgInfo) = 
-        not isParamArrayArg && not isOutArg && not optArgInfo.IsOptional && not reflArgInfo.AutoQuote   
+    let isSimpleFormalArg (isParamArrayArg, isOutArg, optArgInfo: OptionalArgInfo, _reflArgInfo: ReflectedArgInfo) = 
+        not isParamArrayArg && not isOutArg && not optArgInfo.IsOptional 
     
     let callerObjArgTys = objArgs |> List.map (tyOfExpr cenv.g)
 
@@ -8608,7 +8612,7 @@ and TcMethodApplication
               else 
                   unnamedCurriedCallerArgs,namedCurriedCallerArgs
           
-          let MakeUnnamedCallerArgInfo x = (x, GetNewInferenceTypeForMethodArg cenv x, x.Range)
+          let MakeUnnamedCallerArgInfo x = (x, GetNewInferenceTypeForMethodArg cenv env tpenv x, x.Range)
 
           // "single named item" rule. This is where we have a single accessible method 
           //      member x.M(arg1) 
@@ -8651,7 +8655,7 @@ and TcMethodApplication
           | _ ->
               let unnamedCurriedCallerArgs = unnamedCurriedCallerArgs |> List.mapSquared MakeUnnamedCallerArgInfo
               let namedCurriedCallerArgs = namedCurriedCallerArgs |> List.mapSquared (fun (isOpt,nm,x) -> 
-                let ty = GetNewInferenceTypeForMethodArg cenv x
+                let ty = GetNewInferenceTypeForMethodArg cenv env tpenv x
                 // #435263 : compiler crash with .net optional parameters and F# optional syntax
                 // named optional arguments should always have option type
                 let ty = if isOpt then mkOptionTy denv.g ty else ty
