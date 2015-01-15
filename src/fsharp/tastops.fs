@@ -5064,9 +5064,7 @@ let ComputeFieldName tycon f =
 //------------------------------------------------------------------------- 
 
 let isQuotedExprTy g ty =  match ty with AppTy g (tcref,_) -> tyconRefEq g tcref g.expr_tcr | _ -> false
-let isRawQuotedExprTy g ty =  match ty with AppTy g (tcref,_) -> tyconRefEq g tcref g.raw_expr_tcr | _ -> false
 let destQuotedExprTy g ty =  match ty with AppTy g (_,[ty]) -> ty | _ -> failwith "destQuotedExprTy"
-let destRawQuotedExprTy g ty =  match ty with AppTy g (_,[ty]) -> ty | _ -> failwith "destRawQuotedExprTy"
 
 let mkQuotedExprTy g ty =  TType_app(g.expr_tcr,[ty])
 let mkRawQuotedExprTy g =  TType_app(g.raw_expr_tcr,[])
@@ -6027,18 +6025,6 @@ let mkCallLiftValueWithDefn g m qty e1 =
         let copyOfExpr = copyExpr g ValCopyFlag.CloneAll e1
         let quoteOfCopyOfExpr = Expr.Quote(copyOfExpr, ref None, false, m, qty)
         mkApps g (typedExprForIntrinsic g m g.lift_value_with_defn_info , [[ty]], [mkTupledNoTypes g m [e1; quoteOfCopyOfExpr]],  m)
-    | None ->
-        Expr.Quote(e1, ref None, false, m, qty)
-
-let mkCallLiftValueWithDefnRaw g m qty e1 = 
-    assert isRawQuotedExprTy g qty
-    let vref = ValRefForIntrinsic g.lift_value_with_defn_info 
-    // Use "Expr.WithValue" if it exists in FSharp.Core
-    match vref.TryDeref with
-    | Some _ ->
-        let copyOfExpr = copyExpr g ValCopyFlag.CloneAll e1
-        let quoteOfCopyOfExpr = Expr.Quote(copyOfExpr, ref None, false, m, qty)
-        mkApps g (typedExprForIntrinsic g m g.lift_value_with_defn_info , [], [mkTupledNoTypes g m [mkBox (tyOfExpr g e1) e1 m; mkCallTypeOf g m (tyOfExpr g e1); quoteOfCopyOfExpr]],  m)
     | None ->
         Expr.Quote(e1, ref None, false, m, qty)
 

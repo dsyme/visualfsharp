@@ -2429,16 +2429,7 @@ module TestAutoQuoteAtStaticMethodCalls =
         static member PlotThreeArg (w:int, [<ReflectedDefinition>] x: Expr<'T>, y : int) = 
             sprintf "%A" (w,x,y) |> cleanup
 
-        static member PlotRaw ([<ReflectedDefinition>] x: Expr) = 
-            sprintf "%A" x |> cleanup
-
         static member PlotParams ([<ReflectedDefinition; System.ParamArray>] x: Expr<int>[]) = 
-            sprintf "%A" x |> cleanup
-
-        static member PlotRawParams ([<ReflectedDefinition; System.ParamArray>] x: Expr[]) = 
-            sprintf "%A" x |> cleanup
-
-        static member RawParams ([<System.ParamArray>] x: Expr[]) = 
             sprintf "%A" x |> cleanup
 
         static member PlotEval ([<ReflectedDefinition(true)>] x: Expr<'T>) = 
@@ -2458,31 +2449,13 @@ module TestAutoQuoteAtStaticMethodCalls =
 
         C.Plot (x + y * z) |> shouldEqual "testd109701" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
 
-        C.PlotRaw (x + y * z) |> shouldEqual "testd109702" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
-
         C.PlotTwoArg (x + y * z, 108) |> shouldEqual "testd109703" "(Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
 
         C.PlotThreeArg (107, x + y * z, 108)|> shouldEqual "testd109704" "(107,Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
 
-        C.RawParams () |> shouldEqual "testd109705" "[||]"
-
-        C.RawParams (<@ xb && yb || zb @>, <@ x + y * z @>) |> shouldEqual "testd109706" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams () |> shouldEqual "testd109707" "[||]"
-
         C.PlotParams (1, 2) |> shouldEqual "testd109708" "[|Value(1);Value(2)|]"
 
         C.PlotParams (x + y) |> shouldEqual "testd109709" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),PropertyGet(None,y,[])])|]"
-
-        C.PlotRawParams (x + y * z) |> shouldEqual "testd10970A" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams ((xb && yb || zb), (x + y * z)) |> shouldEqual "testd10970B" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams (x + y * z, x + y * z, x + y * z) |> shouldEqual "testd10970C" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        C.PlotRawParams ( [| |]) |> shouldEqual "testd10970D" "[||]"
-
-        C.PlotRawParams ( [| <@@ x + y * z @@> |]) |> shouldEqual "testd10970E" """[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"""
 
         C.Plot (fun (x,y,z) -> xb && yb || zb) |> shouldEqual "testd10970F" "Lambda(tupledArg,Let(x,TupleGet(tupledArg,0),Let(y,TupleGet(tupledArg,1),Let(z,TupleGet(tupledArg,2),IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))))))"
 
@@ -2510,19 +2483,10 @@ module TestAutoQuoteAtInstanceMethodCalls =
         member __.PlotThreeArg (w:int, [<ReflectedDefinition>] x: Expr<'T>, y : int) = 
             sprintf "%A" (w,x,y) |> cleanup
 
-        member __.PlotRaw ([<ReflectedDefinition>] x: Expr) = 
-            sprintf "%A" x |> cleanup
-
         member __.PlotParams ([<ReflectedDefinition; System.ParamArray>] x: Expr<int>[]) = 
             sprintf "%A" x |> cleanup
 
-        member __.PlotRawParams ([<ReflectedDefinition; System.ParamArray>] x: Expr[]) = 
-            sprintf "%A" x |> cleanup
-
         member __.Item ([<ReflectedDefinition>] x: Expr<'T>) = 
-            sprintf "%A" x |> cleanup
-
-        member __.RawParams ([<System.ParamArray>] x: Expr[]) = 
             sprintf "%A" x |> cleanup
 
         member __.PlotEval ([<ReflectedDefinition(true)>] x: Expr<'T>) = 
@@ -2570,31 +2534,13 @@ module TestAutoQuoteAtInstanceMethodCalls =
 
         c.[x + y * z] |> shouldEqual "testd109701" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
 
-        c.PlotRaw (x + y * z) |> shouldEqual "testd109702" "Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])"
-
         c.PlotTwoArg (x + y * z, 108) |> shouldEqual "testd109703" "(Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
 
         c.PlotThreeArg (107, x + y * z, 108)|> shouldEqual "testd109704" "(107,Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]),108)"
 
-        c.RawParams () |> shouldEqual "testd109705" "[||]"
-
-        c.RawParams (<@ xb && yb || zb @>, <@ x + y * z @>) |> shouldEqual "testd109706" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        c.PlotRawParams () |> shouldEqual "testd109707" "[||]"
-
         c.PlotParams (1, 2) |> shouldEqual "testd109708" "[|Value(1);Value(2)|]"
 
         c.PlotParams (x + y) |> shouldEqual "testd109709" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),PropertyGet(None,y,[])])|]"
-
-        c.PlotRawParams (x + y * z) |> shouldEqual "testd10970A" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        c.PlotRawParams ((xb && yb || zb), (x + y * z)) |> shouldEqual "testd10970B" "[|IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb));Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        c.PlotRawParams (x + y * z, x + y * z, x + y * z) |> shouldEqual "testd10970C" "[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])]);Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"
-
-        c.PlotRawParams ( [| |]) |> shouldEqual "testd10970D" "[||]"
-
-        c.PlotRawParams ( [| <@@ x + y * z @@> |]) |> shouldEqual "testd10970E" """[|Call(None,op_Addition,[PropertyGet(None,x,[]),Call(None,op_Multiply,[PropertyGet(None,y,[]),ValueWithName(1,z)])])|]"""
 
         c.Plot (fun (x,y,z) -> xb && yb || zb) |> shouldEqual "testd10970F" "Lambda(tupledArg,Let(x,TupleGet(tupledArg,0),Let(y,TupleGet(tupledArg,1),Let(z,TupleGet(tupledArg,2),IfThenElse(IfThenElse(PropertyGet(None,xb,[]),PropertyGet(None,yb,[]),Value(false)),Value(true),ValueWithName(true,zb))))))"
 
@@ -2618,7 +2564,6 @@ module TestsForUsingReflectedDefinitionArgumentsAsFirstClassValues =
     open System
 
     type FirstClassTests() = 
-        static member PlotRawExpr ([<ReflectedDefinition>] x: Expr) = x.ToString()
         static member PlotExpr ([<ReflectedDefinition>] x: Expr<'T>) = x.ToString()
         static member PlotExprOverloadedByType ([<ReflectedDefinition>] x: Expr<int>) = x.ToString()
         static member PlotExprOverloadedByType ([<ReflectedDefinition>] x: Expr<string>) = x.ToString()
@@ -2666,8 +2611,6 @@ module TestsForUsingReflectedDefinitionArgumentsAsFirstClassValues =
     (FirstClassTests.PlotLinqOverloadedByShape : Expression<Func<int,int>> -> string)     // doesn't auto-quote implicit var
     // EXPECTED AND CONSISTENT: (C.PlotLinqOverloadedByShape : (int -> int) -> string)     // auto- - though not very useful
 
-    (FirstClassTests.PlotRawExpr : Expr -> string)     // doesn't auto-quote implicit var
-    (FirstClassTests.PlotRawExpr : obj -> string)     // does auto-quote implicit var
     (FirstClassTests.PlotExpr : Expr<int> -> string)     // doesn't auto-quote implicit var
     (FirstClassTests.PlotExpr : int -> string)           // does auto-quote implicit var
     (FirstClassTests.PlotExprOverloadedByType : Expr<int> -> string)     // doesn't auto-quote implicit var

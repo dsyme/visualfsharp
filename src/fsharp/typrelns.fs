@@ -1598,9 +1598,6 @@ let AdjustCalledArgType (infoReader:InfoReader) isConstraint (calledArg: CalledA
             elif calledArg.ReflArgInfo.AutoQuote && isQuotedExprTy g calledArgTy && not (isQuotedExprTy g callerArgTy) then 
                 destQuotedExprTy g calledArgTy
 
-            elif calledArg.ReflArgInfo.AutoQuote && isRawQuotedExprTy g calledArgTy && not (isQuotedExprTy g callerArgTy) && not (isRawQuotedExprTy g callerArgTy) then 
-                g.obj_ty
-
             else calledArgTy
 
         // Adjust the called argument type to take into account whether the caller's argument is M(?arg=Some(3)) or M(arg=1) 

@@ -1096,10 +1096,8 @@ val destInt32 : Expr -> int32 option
 // Primitives associated with quotations
 //------------------------------------------------------------------------- 
  
-val isRawQuotedExprTy : TcGlobals -> TType -> bool
 val isQuotedExprTy : TcGlobals -> TType -> bool
 val destQuotedExprTy : TcGlobals -> TType -> TType
-val destRawQuotedExprTy : TcGlobals -> TType -> TType
 val mkQuotedExprTy : TcGlobals -> TType -> TType
 val mkRawQuotedExprTy : TcGlobals -> TType
 val mspec_Type_GetTypeFromHandle : ILGlobals ->  ILMethodSpec
@@ -1149,7 +1147,6 @@ val mkCallUnpickleQuotation  : TcGlobals -> range -> Expr -> Expr -> Expr -> Exp
 val mkCallCastQuotation      : TcGlobals -> range -> TType -> Expr -> Expr 
 val mkCallLiftValueWithName          : TcGlobals -> range -> TType -> string -> Expr -> Expr
 val mkCallLiftValueWithDefn          : TcGlobals -> range -> TType -> Expr -> Expr
-val mkCallLiftValueWithDefnRaw       : TcGlobals -> range -> TType -> Expr -> Expr
 val mkCallSeqCollect         : TcGlobals -> range -> TType  -> TType -> Expr -> Expr -> Expr
 val mkCallSeqUsing           : TcGlobals -> range -> TType  -> TType -> Expr -> Expr -> Expr
 val mkCallSeqDelay           : TcGlobals -> range -> TType  -> Expr -> Expr

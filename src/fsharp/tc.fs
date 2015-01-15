@@ -8978,15 +8978,6 @@ and TcMethodApplication
                Expr.Quote(callerArgExpr, ref None, false, m, calledArgTy)
            | ReflectedArgInfo.None -> failwith "unreachable" // unreachable due to reflArgInfo.AutoQuote condition
 
-       elif reflArgInfo.AutoQuote && isRawQuotedExprTy cenv.g calledArgTy &&  not (isRawQuotedExprTy cenv.g callerArgTy) then 
-           match reflArgInfo with 
-           | ReflectedArgInfo.Quote true -> 
-               mkCallLiftValueWithDefnRaw cenv.g m calledArgTy callerArgExpr
-           | ReflectedArgInfo.Quote false -> 
-               Expr.Quote(callerArgExpr, ref None, false, m, calledArgTy)
-           | ReflectedArgInfo.None -> failwith "unreachable" // unreachable due to reflArgInfo.AutoQuote condition
-
-
        // Note: out args do not need to be coerced 
        elif isOutArg then 
            callerArgExpr
