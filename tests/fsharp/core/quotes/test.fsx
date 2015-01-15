@@ -2575,70 +2575,70 @@ module TestsForUsingReflectedDefinitionArgumentsAsFirstClassValues =
         static member PlotLinqOverloadedByShape (x: Func<int,'T>) =  x.ToString()
         static member PlotLinqOverloadedByShape (x: Expression<Func<int,'T>>) =  x.ToString()
 
-    //open Microsoft.FSharp.Quotations
-    //let f (x:Expr<'T>) = x.ToString()
+    // Most of the following tests are just checking that overloads are resolved correctly
+    let runAll() = 
 
-    (FirstClassTests.PlotLinq : Expression<Func<int,int>> -> string)     // doesn't quote implicit var
-    (FirstClassTests.PlotLinq : (int -> int) -> string)     // doesn't quote implicit var
+        // Check we can define a function that calls the overloads
+        let callLinqWithoutAutoConv (ef: Expression<Func<int,int>>) = FirstClassTests.PlotLinq ef     
+        let callLinqWithAutoConv (f: int -> int) = FirstClassTests.PlotLinq (fun x -> f x)     // needs eta-expansion
+        let callLinqOverloadedByTypeWithoutAutoConvInt (ef: Expression<Func<int,int>>) = FirstClassTests.PlotLinqOverloadedByType ef     
+        let callLinqOverloadedByTypeWithoutAutoConvString (ef: Expression<Func<string,int>>) = FirstClassTests.PlotLinqOverloadedByType ef     
+        let callLinqOverloadedByTypeWithAutoConvInt (f: int -> int) = FirstClassTests.PlotLinqOverloadedByType (fun x -> f x)   
+        let callLinqOverloadedByTypeWithAutoConvString (f: string -> int) = FirstClassTests.PlotLinqOverloadedByType (fun x -> f x)   
+        let callLinqOverloadedByShapeWithoutAutoConv (ef: Expression<Func<int,int>>) = FirstClassTests.PlotLinqOverloadedByShape ef     
+        let callExprWithoutAutoConv (ef: Expr<int>) = FirstClassTests.PlotExpr <@ %ef @>
+        let callExprWithAutoConv (ef: int) = FirstClassTests.PlotExpr ef     
+        let callExprOverloadedWithoutAutoConvA (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByType <@ %ef @>
+        let callExprOverloadedWithoutAutoConvB (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByType ef
+        let callExprOverloadedWithAutoConv (ef: int) = FirstClassTests.PlotExprOverloadedByType ef     
+        let callExprOverloadedByShapeWithoutAutoConvA (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByShape <@ %ef @>
+        let callExprOverloadedByShapeWithoutAutoConvB (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByShape ef
+        // EXPECTED OVERLOAD RESOLUTION FAILURE: let callLinqOverloadedByShapeWithAutoConv (f: int -> int) = C.PlotLinqOverloadedByShape (fun x -> f x)    // overload not resolved
+        // EXPECTED OVERLOAD RESOLUTION FAILURE: let callExprOverloadedByShapeWithAutoConv (ef: int) = C.PlotExprOverloadedByShape ef      // overload not resolved
 
-    let callLinqWithoutAutoConv (ef: Expression<Func<int,int>>) = FirstClassTests.PlotLinq ef     
-    let callLinqWithAutoConv (f: int -> int) = FirstClassTests.PlotLinq (fun x -> f x)     // needs eta-expansion
-
-    let callLinqOverloadedByTypeWithoutAutoConvInt (ef: Expression<Func<int,int>>) = FirstClassTests.PlotLinqOverloadedByType ef     
-    let callLinqOverloadedByTypeWithoutAutoConvString (ef: Expression<Func<string,int>>) = FirstClassTests.PlotLinqOverloadedByType ef     
-    let callLinqOverloadedByTypeWithAutoConvInt (f: int -> int) = FirstClassTests.PlotLinqOverloadedByType (fun x -> f x)   
-    let callLinqOverloadedByTypeWithAutoConvString (f: string -> int) = FirstClassTests.PlotLinqOverloadedByType (fun x -> f x)   
-
-    let callLinqOverloadedByShapeWithoutAutoConv (ef: Expression<Func<int,int>>) = FirstClassTests.PlotLinqOverloadedByShape ef     
-    // EXPECTED AND CONSISTENT: let callLinqOverloadedByShapeWithAutoConv (f: int -> int) = C.PlotLinqOverloadedByShape (fun x -> f x)   
-
-    let callExprWithoutAutoConv (ef: Expr<int>) = FirstClassTests.PlotExpr <@ %ef @>
-    let callExprWithAutoConv (ef: int) = FirstClassTests.PlotExpr ef     
-
-    let callExprOverloadedWithoutAutoConvA (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByType <@ %ef @>
-    let callExprOverloadedWithoutAutoConvB (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByType ef
-    let callExprOverloadedWithAutoConv (ef: int) = FirstClassTests.PlotExprOverloadedByType ef     
-
-    let callExprOverloadedByShapeWithoutAutoConvA (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByShape <@ %ef @>
-    let callExprOverloadedByShapeWithoutAutoConvB (ef: Expr<int>) = FirstClassTests.PlotExprOverloadedByShape ef
-    // EXPECTED AND CONSISTENT: let callExprOverloadedByShapeWithAutoConv (ef: int) = C.PlotExprOverloadedByShape ef     
-
-    (FirstClassTests.PlotLinq : (int -> int) -> string)     // auto- - though not very useful
-    (FirstClassTests.PlotLinq : Expression<Func<int,int>> -> string)     // doesn't auto-quote implicit var
-    (FirstClassTests.PlotLinqOverloadedByType : (int -> int) -> string)     // auto- - though not very useful
-    (FirstClassTests.PlotLinqOverloadedByType : (int -> string) -> string)     // auto- - though not very useful
-    (FirstClassTests.PlotLinqOverloadedByType : Expression<Func<int,int>> -> string)     // doesn't auto-quote implicit var
-    (FirstClassTests.PlotLinqOverloadedByShape : Expression<Func<int,int>> -> string)     // doesn't auto-quote implicit var
-    // EXPECTED AND CONSISTENT: (C.PlotLinqOverloadedByShape : (int -> int) -> string)     // auto- - though not very useful
-
-    (FirstClassTests.PlotExpr : Expr<int> -> string)     // doesn't auto-quote implicit var
-    (FirstClassTests.PlotExpr : int -> string)           // does auto-quote implicit var
-    (FirstClassTests.PlotExprOverloadedByType : Expr<int> -> string)     // doesn't auto-quote implicit var
-    (FirstClassTests.PlotExprOverloadedByType : int -> string)           // does auto-quote implicit var
-    (FirstClassTests.PlotExprOverloadedByType : string -> string)           // does auto-quote implicit var
-    (FirstClassTests.PlotExprOverloadedByShape : Expr<int> -> string)     // doesn't auto-quote implicit var
-    // EXPECTED AND CONSISTENT: (C.PlotExprOverloadedByShape : int -> string)           // does auto-quote implicit var
+        // Check type-checking for type-annotated first-class function values
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotLinq : (int -> int) -> string)     // auto-quotes implicit var - though not very useful
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotLinq : Expression<Func<int,int>> -> string)     
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotLinqOverloadedByType : (int -> int) -> string)     // auto-quotes implicit var - though not very useful
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotLinqOverloadedByType : (int -> string) -> string)     // auto-quotes implicit var - though not very useful
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotLinqOverloadedByType : Expression<Func<int,int>> -> string)     
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotLinqOverloadedByShape : Expression<Func<int,int>> -> string)    
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotLinqOverloadedByShape : Func<int,int> -> string)     // auto-quotes implicit var - though not very useful
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotExpr : Expr<int> -> string)     
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotExpr : int -> string)           // auto-quotes implicit var - though not very useful
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotExprOverloadedByType : Expr<int> -> string)     
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotExprOverloadedByType : int -> string)           // auto-quotes implicit var - though not very useful
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotExprOverloadedByType : string -> string)           // auto-quotes implicit var - though not very useful
+        let _unusedFirstClassFunctionValue = (FirstClassTests.PlotExprOverloadedByShape : Expr<int> -> string)     
+        // EXPECTED OVERLOAD RESOLUTION FAILURE: (C.PlotLinqOverloadedByShape : (int -> int) -> string)     // overload not resolved
+        // EXPECTED OVERLOAD RESOLUTION FAILURE: (C.PlotExprOverloadedByShape : int -> string)           // overload not resolved
 
 
-    FirstClassTests.PlotExpr 1
-    FirstClassTests.PlotExpr <@ 1 @>
-    FirstClassTests.PlotExprOverloadedByType 1
-    FirstClassTests.PlotExprOverloadedByType <@ 1 @>
-    FirstClassTests.PlotExprOverloadedByType "a"
-    FirstClassTests.PlotExprOverloadedByType <@ "a" @>
-    // EXPECTED AND CONSISTENT: 1 |> FirstClassTests.PlotExprOverloadedByShape
-    FirstClassTests.PlotExprOverloadedByShape <@ 1 @>
+        // Check type-checking for applications
+        let _unusedResultValue = FirstClassTests.PlotExpr 1
+        let _unusedResultValue = FirstClassTests.PlotExpr <@ 1 @>
+        let _unusedResultValue = FirstClassTests.PlotExprOverloadedByType 1
+        let _unusedResultValue = FirstClassTests.PlotExprOverloadedByType <@ 1 @>
+        let _unusedResultValue = FirstClassTests.PlotExprOverloadedByType "a"
+        let _unusedResultValue = FirstClassTests.PlotExprOverloadedByType <@ "a" @>
+        let _unusedResultValue = FirstClassTests.PlotExprOverloadedByShape <@ 1 @>
+        // EXPECTED OVERLOAD RESOLUTION FAILURE: let _unusedResultValue = FirstClassTests.PlotLinqOverloadedByShape (fun x -> x)
+        // EXPECTED OVERLOAD RESOLUTION FAILURE: let _unusedResultValue = FirstClassTests.PlotExprOverloadedByShape 1  // overload not resolved
 
 
-    1 |> FirstClassTests.PlotExpr
-    <@ 1 @> |> FirstClassTests.PlotExpr
-    1 |> FirstClassTests.PlotExprOverloadedByType
-    <@ 1 @> |> FirstClassTests.PlotExprOverloadedByType
-    "a" |> FirstClassTests.PlotExprOverloadedByType
-    <@ "a" @> |> FirstClassTests.PlotExprOverloadedByType
-    // EXPECTED AND CONSISTENT: 1 |> FirstClassTests.PlotExprOverloadedByShape
-    <@ 1 @> |> FirstClassTests.PlotExprOverloadedByShape
+        // Check type-checking for pipelining 
+        let _unusedResultValue = 1 |> FirstClassTests.PlotExpr
+        let _unusedResultValue = <@ 1 @> |> FirstClassTests.PlotExpr
+        let _unusedResultValue = 1 |> FirstClassTests.PlotExprOverloadedByType
+        let _unusedResultValue = <@ 1 @> |> FirstClassTests.PlotExprOverloadedByType
+        let _unusedResultValue = "a" |> FirstClassTests.PlotExprOverloadedByType
+        let _unusedResultValue = <@ "a" @> |> FirstClassTests.PlotExprOverloadedByType
+        let _unusedResultValue = <@ 1 @> |> FirstClassTests.PlotExprOverloadedByShape
+        // EXPECTED OVERLOAD RESOLUTION FAILURE: 1 |> FirstClassTests.PlotExprOverloadedByShape // overload not resolved
 
+        ()
+
+    runAll()
 
 
 let aa =
