@@ -30,6 +30,16 @@ Before running tests, make sure you have successfully built all required project
 
 Don't forget to build and install the Visual Studio components, as well, if you want to run the IDE tests below.
 
+## Running Tests: Quick Guide
+
+To run the major language/compiler/library tests for a *debug* build:
+
+    RunTests.cmd debug fsharp 
+    RunTests.cmd debug fsharpqa 
+    RunTests.cmd debug coreunit
+
+See below for more details.
+
 ## Running Tests
 
 Note: **Don't** run tests from a Visual Studio developer command prompt (see below).
