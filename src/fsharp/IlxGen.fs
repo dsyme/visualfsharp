@@ -5072,7 +5072,7 @@ and GenMethodForBinding
                // active pattern names
                mdef.Name.StartsWith("|",System.StringComparison.Ordinal) ||
                // event add/remove method
-               v.Data.val_flags.IsGeneratedEventVal then
+               v.Data.Fat.val_flags.IsGeneratedEventVal then
                 {mdef with IsSpecialName=true} 
             else 
                 mdef

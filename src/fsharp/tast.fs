@@ -1994,14 +1994,14 @@ and
     member x.Type                       = x.Data.val_type
 
     /// How visible is this value, function or member?
-    member x.Accessibility              = x.Data.val_access
+    member x.Accessibility              = x.Data.Fat.val_access
 
     /// Range of the definition (implementation) of the value, used by Visual Studio 
     /// Updated by mutation when the implementation is matched against the signature. 
-    member x.DefinitionRange            = x.Data.val_defn_range
+    member x.DefinitionRange            = x.Data.Fat.val_defn_range
 
     /// The value of a value or member marked with [<LiteralAttribute>] 
-    member x.LiteralValue               = x.Data.val_const
+    member x.LiteralValue               = x.Data.Fat.val_const
 
     /// Records the "extra information" for a value compiled as a method.
     ///
@@ -2018,7 +2018,7 @@ and
     ///
     /// TLR also sets this for inner bindings that it wants to 
     /// represent as "top level" bindings.     
-    member x.ValReprInfo : ValReprInfo option = x.Data.val_repr_info
+    member x.ValReprInfo : ValReprInfo option = x.Data.Fat.val_repr_info
 
     member x.Id                         = ident(x.LogicalName,x.Range)
 
@@ -2048,19 +2048,19 @@ and
 
 
     /// Is this a member definition or module definition?
-    member x.IsMemberOrModuleBinding    = x.Data.val_flags.IsMemberOrModuleBinding
+    member x.IsMemberOrModuleBinding    = x.Data.Fat.val_flags.IsMemberOrModuleBinding
 
     /// Indicates if this is an F#-defined extension member
-    member x.IsExtensionMember          = x.Data.val_flags.IsExtensionMember
+    member x.IsExtensionMember          = x.Data.Fat.val_flags.IsExtensionMember
 
     /// The quotation expression associated with a value given the [<ReflectedDefinition>] tag
-    member x.ReflectedDefinition        = x.Data.val_defn
+    member x.ReflectedDefinition        = x.Data.Fat.val_defn
 
     /// Is this a member, if so some more data about the member.
     ///
     /// Note, the value may still be (a) an extension member or (b) and abstract slot without
     /// a true body. These cases are often causes of bugs in the compiler.
-    member x.MemberInfo                 = x.Data.val_member_info
+    member x.MemberInfo                 = x.Data.Fat.val_member_info
 
     /// Indicates if this is a member
     member x.IsMember                   = x.MemberInfo.IsSome
@@ -2099,38 +2099,38 @@ and
         | _ -> false
             
     /// Indicates if this is declared 'mutable'
-    member x.IsMutable                  = (match x.Data.val_flags.MutabilityInfo with Immutable -> false | Mutable -> true)
+    member x.IsMutable                  = (match x.Data.Fat.val_flags.MutabilityInfo with Immutable -> false | Mutable -> true)
 
     /// Indicates if this is inferred to be a method or function that definitely makes no critical tailcalls?
-    member x.MakesNoCriticalTailcalls = x.Data.val_flags.MakesNoCriticalTailcalls
+    member x.MakesNoCriticalTailcalls = x.Data.Fat.val_flags.MakesNoCriticalTailcalls
     
     /// Indicates if this is ever referenced?
-    member x.HasBeenReferenced = x.Data.val_flags.HasBeenReferenced
+    member x.HasBeenReferenced = x.Data.Fat.val_flags.HasBeenReferenced
 
     /// Indicates if the backing field for a static value is suppressed.
-    member x.IsCompiledAsStaticPropertyWithoutField = x.Data.val_flags.IsCompiledAsStaticPropertyWithoutField
+    member x.IsCompiledAsStaticPropertyWithoutField = x.Data.Fat.val_flags.IsCompiledAsStaticPropertyWithoutField
 
     /// Indicates if this value allows the use of an explicit type instantiation (i.e. does it itself have explicit type arguments,
     /// or does it have a signature?)
-    member x.PermitsExplicitTypeInstantiation = x.Data.val_flags.PermitsExplicitTypeInstantiation
+    member x.PermitsExplicitTypeInstantiation = x.Data.Fat.val_flags.PermitsExplicitTypeInstantiation
 
     /// Indicates if this is a member generated from the de-sugaring of 'let' function bindings in the implicit class syntax?
-    member x.IsIncrClassGeneratedMember     = x.IsCompilerGenerated && x.Data.val_flags.IsIncrClassSpecialMember
+    member x.IsIncrClassGeneratedMember     = x.IsCompilerGenerated && x.Data.Fat.val_flags.IsIncrClassSpecialMember
 
     /// Indicates if this is a constructor member generated from the de-sugaring of implicit constructor for a class type?
-    member x.IsIncrClassConstructor = x.IsConstructor && x.Data.val_flags.IsIncrClassSpecialMember
+    member x.IsIncrClassConstructor = x.IsConstructor && x.Data.Fat.val_flags.IsIncrClassSpecialMember
 
     /// Get the information about the value used during type inference
-    member x.RecursiveValInfo           = x.Data.val_flags.RecursiveValInfo
+    member x.RecursiveValInfo           = x.Data.Fat.val_flags.RecursiveValInfo
 
     /// Indicates if this is a 'base' or 'this' value?
-    member x.BaseOrThisInfo             = x.Data.val_flags.BaseOrThisInfo
+    member x.BaseOrThisInfo             = x.Data.Fat.val_flags.BaseOrThisInfo
 
     //  Indicates if this value was declared to be a type function, e.g. "let f<'a> = typeof<'a>"
-    member x.IsTypeFunction             = x.Data.val_flags.IsTypeFunction
+    member x.IsTypeFunction             = x.Data.Fat.val_flags.IsTypeFunction
 
     /// Get the inline declaration on the value
-    member x.InlineInfo                 = x.Data.val_flags.InlineInfo
+    member x.InlineInfo                 = x.Data.Fat.val_flags.InlineInfo
 
     /// Indicates whether the inline declaration for the value indicate that the value must be inlined?
     member x.MustInline                 = mustinline(x.InlineInfo)
@@ -2138,21 +2138,21 @@ and
     /// Indicates whether this value was generated by the compiler.
     ///
     /// Note: this is true for the overrides generated by hash/compare augmentations
-    member x.IsCompilerGenerated        = x.Data.val_flags.IsCompilerGenerated
+    member x.IsCompilerGenerated        = x.Data.Fat.val_flags.IsCompilerGenerated
     
     /// Get the declared attributes for the value
-    member x.Attribs                    = x.Data.val_attribs
+    member x.Attribs                    = x.Data.Fat.val_attribs
 
     /// Get the declared documentation for the value
-    member x.XmlDoc                     = x.Data.val_xmldoc
+    member x.XmlDoc                     = x.Data.Fat.val_xmldoc
     
     ///Get the signature for the value's XML documentation
     member x.XmlDocSig 
-        with get() = x.Data.val_xmldocsig
-        and set(v) = x.Data.val_xmldocsig <- v
+        with get() = x.Data.Fat.val_xmldocsig
+        and set(v) = x.Data.Fat.val_xmldocsig <- v
 
     /// The parent type or module, if any (None for expression bindings and parameters)
-    member x.ActualParent               = x.Data.val_actual_parent
+    member x.ActualParent               = x.Data.Fat.val_actual_parent
 
     /// Get the actual parent entity for the value (a module or a type), i.e. the entity under which the
     /// value will appear in compiled code. For extension members this is the module where the extension member
@@ -2245,7 +2245,7 @@ and
     ///   - If this is an operator then this is 'op_Addition'
     member x.CompiledName =
         let givenName = 
-            match x.Data.val_compiled_name with 
+            match x.Data.Fat.val_compiled_name with 
             | Some n -> n
             | None -> x.LogicalName 
         // These cases must get stable unique names for their static field & static property. This name
@@ -2297,14 +2297,14 @@ and
     member x.DisplayName = 
         DemangleOperatorName x.CoreDisplayName
 
-    member x.SetValRec b                                 = x.Data.val_flags <- x.Data.val_flags.SetRecursiveValInfo b 
-    member x.SetIsMemberOrModuleBinding()                = x.Data.val_flags <- x.Data.val_flags.SetIsMemberOrModuleBinding 
-    member x.SetMakesNoCriticalTailcalls()               = x.Data.val_flags <- x.Data.val_flags.SetMakesNoCriticalTailcalls
-    member x.SetHasBeenReferenced()                      = x.Data.val_flags <- x.Data.val_flags.SetHasBeenReferenced
-    member x.SetIsCompiledAsStaticPropertyWithoutField() = x.Data.val_flags <- x.Data.val_flags.SetIsCompiledAsStaticPropertyWithoutField
-    member x.SetValReprInfo info                          = x.Data.val_repr_info <- info
+    member x.SetValRec b                                 = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetRecursiveValInfo b)
+    member x.SetIsMemberOrModuleBinding()                = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetIsMemberOrModuleBinding)
+    member x.SetMakesNoCriticalTailcalls()               = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetMakesNoCriticalTailcalls)
+    member x.SetHasBeenReferenced()                      = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetHasBeenReferenced)
+    member x.SetIsCompiledAsStaticPropertyWithoutField() = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetIsCompiledAsStaticPropertyWithoutField)
+    member x.SetValReprInfo info                          = x.Data.SetFat (fun d -> d.val_repr_info <- info)
     member x.SetType ty                                  = x.Data.val_type <- ty
-    member x.SetDefnRange m                              = x.Data.val_defn_range <- m
+    member x.SetDefnRange m                              = x.Data.SetFat (fun d -> d.val_defn_range <- m)
 
     /// Create a new value with empty, unlinked data. Only used during unpickling of F# metadata.
     static member NewUnlinked() : Val  = { Data = nullableSlotEmpty() }
@@ -2324,20 +2324,9 @@ and
 and 
     [<NoEquality; NoComparison >]
     [<StructuredFormatDisplay("{val_logical_name}")>]
-    ValData =
-
-    // ValData is 19 words!! CONSIDER THIS TINY FORMAT, for all local, immutable, attribute-free values
-    // val_logical_name: string
-    // val_range: range
-    // mutable val_type: TType
-    // val_stamp: Stamp 
-
-    { val_logical_name: string
-      val_compiled_name: string option
-      val_range: range
-      mutable val_defn_range: range 
-      mutable val_type: TType
-      val_stamp: Stamp 
+    ValDataFat  =
+    { val_compiled_name: string option
+      mutable val_defn_range: range  
       /// See vflags section further below for encoding/decodings here 
       mutable val_flags: ValFlags
       mutable val_const: Const option
@@ -2378,6 +2367,42 @@ and
       
       /// XML documentation signature for the value
       mutable val_xmldocsig : string } 
+
+and ValDataFatStatics()  =
+    static let dflt = 
+        { val_compiled_name = None
+          val_defn_range = range0
+          val_flags = ValFlags(ValNotInRecScope,NormalVal,isCompGen=false,inlineInfo=ValInline.Optional,isMutable=Immutable,
+                               isModuleOrMemberBinding=false,isExtensionMember=false,
+                               isIncrClassSpecialMember=false,isTyFunc=false,allowTypeInst=false,isGeneratedEventVal=false)
+          val_const=None
+          val_defn=None
+          val_access=TAccess []
+          val_member_info=None
+          val_attribs=[]
+          val_repr_info=None
+          val_actual_parent=ParentNone
+          val_xmldoc =XmlDoc.Empty
+          val_xmldocsig = ""} 
+    static member Default = dflt
+
+and 
+    [<NoEquality; NoComparison >]
+    [<StructuredFormatDisplay("{val_logical_name}")>]
+    ValData =
+    { val_logical_name: string
+      val_range: range
+      mutable val_type: TType
+      val_stamp: Stamp 
+      mutable val_fat: NonNullInlineOption<ValDataFat> } 
+    member x.Fat = 
+        if x.val_fat.IsSome then x.val_fat.Value 
+        else ValDataFatStatics.Default
+    member x.SetFat f = 
+        if x.val_fat.IsNone then 
+            x.val_fat <- NonNullInlineOption { x.val_fat.Value with val_compiled_name=None } 
+        f x.val_fat.Value
+
 
 and 
     [<NoEquality; NoComparison; RequireQualifiedAccess>]
@@ -4519,11 +4544,8 @@ let NewModuleOrNamespace cpath access (id:Ident) xml attribs mtype = Construct.N
 
 let NewVal (logicalName:string,m:range,compiledName,ty,isMutable,isCompGen,arity,access,recValInfo,specialRepr,baseOrThis,attribs,inlineInfo,doc,isModuleOrMemberBinding,isExtensionMember,isIncrClassSpecialMember,isTyFunc,allowTypeInst,isGeneratedEventVal,konst,actualParent) : Val = 
     let stamp = newStamp() 
-    Val.New
-        { val_stamp = stamp
-          val_logical_name=logicalName
-          val_compiled_name= (match compiledName with Some v when v <> logicalName -> compiledName | _ -> None)
-          val_range=m
+    let fatData = 
+         {val_compiled_name= (match compiledName with Some v when v <> logicalName -> compiledName | _ -> None)
           val_defn_range=m
           val_defn=None
           val_repr_info= arity
@@ -4533,9 +4555,14 @@ let NewVal (logicalName:string,m:range,compiledName,ty,isMutable,isCompGen,arity
           val_access=access
           val_member_info=specialRepr
           val_attribs=attribs
-          val_type = ty
           val_xmldoc = doc
           val_xmldocsig = ""} 
+    Val.New
+        { val_stamp = stamp
+          val_logical_name=logicalName
+          val_range=m
+          val_type = ty
+          val_fat = NonNullInlineOption fatData }
 
 
 let NewCcuContents sref m nm mty =

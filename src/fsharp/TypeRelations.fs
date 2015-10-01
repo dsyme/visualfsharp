@@ -555,7 +555,7 @@ module SignatureConformance = begin
                 elif not (checkValInfo aenv (err denv) implVal sigVal) then false
                 elif not (implVal.IsExtensionMember = sigVal.IsExtensionMember) then err denv (FSComp.SR.ValueNotContainedMutabilityExtensionsDiffer)
                 elif not (checkMemberDatasConform (err denv) (implVal.Attribs, implVal,implVal.MemberInfo) (sigVal.Attribs,sigVal,sigVal.MemberInfo)) then false
-                else checkAttribs aenv implVal.Attribs sigVal.Attribs (fun attribs -> implVal.Data.val_attribs <- attribs)              
+                else checkAttribs aenv implVal.Attribs sigVal.Attribs (fun attribs -> implVal.Data.SetFat (fun d -> d.val_attribs <- attribs))              
 
 
         and checkExnInfo err aenv implTypeRepr sigTypeRepr =

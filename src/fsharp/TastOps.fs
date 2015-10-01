@@ -4393,7 +4393,7 @@ let markAsCompGen compgen d =
         match compgen with 
         | CloneAllAndMarkExprValsAsCompilerGenerated -> true
         | _ -> false
-    { d with val_flags= d.val_flags.SetIsCompilerGenerated(d.val_flags.IsCompilerGenerated || compgen) }
+    d.val_flags.SetIsCompilerGenerated(d.val_flags.IsCompilerGenerated || compgen)
 
 let bindLocalVal (v:Val) (v':Val) tmenv = 
     { tmenv with valRemap=tmenv.valRemap.Add v (mkLocalValRef v') }
@@ -4439,16 +4439,24 @@ and remapArgData g tmenv (argInfo : ArgReprInfo) : ArgReprInfo =
 and remapValReprInfo g tmenv (ValReprInfo(tpNames,arginfosl,retInfo)) =
     ValReprInfo(tpNames,List.mapSquared (remapArgData g tmenv) arginfosl, remapArgData g tmenv retInfo)
 
-and remapValData g tmenv d =
+and remapValData g tmenv compgen d =
     let ty = d.val_type
-    let topValInfo = d.val_repr_info
     let ty' = ty |> remapPossibleForallTy g tmenv
     { d with 
         val_type    = ty';
+        val_fat = remapValFatDataOpt g tmenv ty ty' compgen d.val_fat }
+
+and remapValFatDataOpt g tmenv ty ty' compgen d =
+    if d.IsNone && compgen <> ValCopyFlag.CloneAllAndMarkExprValsAsCompilerGenerated then d 
+    else NonNullInlineOption (remapValFatData g tmenv ty ty' compgen d.Value)
+
+and remapValFatData g tmenv ty ty' compgen d =
+    { d with 
         val_actual_parent = d.val_actual_parent |> remapParentRef tmenv;
         val_repr_info = d.val_repr_info |> Option.map (remapValReprInfo g tmenv);
-        val_member_info   = d.val_member_info |> Option.map (remapMemberInfo g d.val_defn_range topValInfo ty ty' tmenv);
-        val_attribs       = d.val_attribs       |> remapAttribs g tmenv }
+        val_member_info   = d.val_member_info |> Option.map (remapMemberInfo g d.val_defn_range  d.val_repr_info ty ty' tmenv);
+        val_attribs       = d.val_attribs       |> remapAttribs g tmenv 
+        val_flags = markAsCompGen compgen d }
 
 and remapParentRef tyenv p =
     match p with 
@@ -4470,7 +4478,7 @@ and fixupValData g compgen tmenv (v2:Val) =
     match compgen with 
     | OnlyCloneExprVals when v2.IsMemberOrModuleBinding -> ()
     | _ ->  
-        v2.Data <- remapValData g tmenv v2.Data |> markAsCompGen compgen
+        v2.Data <- remapValData g tmenv compgen v2.Data
     
 and copyAndRemapAndBindVals g compgen tmenv vs = 
     let vs2 = vs |> List.map (copyVal compgen)
@@ -6673,7 +6681,7 @@ let etaExpandTypeLambda g m tps (tm,ty) =
 
 let AdjustValToTopVal (tmp:Val) parent valData =
         tmp.SetValReprInfo (Some valData);  
-        tmp.Data.val_actual_parent <- parent;  
+        tmp.Data.SetFat (fun d -> d.val_actual_parent <- parent);  
         tmp.SetIsMemberOrModuleBinding()
 
 /// For match with only one non-failing target T0, the other targets, T1... failing (say, raise exception).
@@ -7441,7 +7449,7 @@ and remapTyconToNonLocal g tmenv x =
     x |> NewModifiedTycon (remapEntityDataToNonLocal g tmenv)  
 
 and remapValToNonLocal g  tmenv inp = 
-    inp |> NewModifiedVal (remapValData g tmenv)
+    inp |> NewModifiedVal (remapValData g tmenv ValCopyFlag.CloneAll)
 
 let ApplyExportRemappingToEntity g tmenv x = remapTyconToNonLocal g tmenv x
 

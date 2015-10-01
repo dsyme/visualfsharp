@@ -1045,7 +1045,7 @@ and CheckBinding cenv env alwaysCheckNoReraise (TBind(v,e,_) as bind) =
 
                 // If we've already recorded a definition then skip this 
                 match v.ReflectedDefinition with 
-                | None -> v.Data.val_defn <- Some e
+                | None -> v.Data.SetFat (fun d -> d.val_defn <- Some e)
                 | Some _ -> ()
                 // Run the conversion process over the reflected definition to report any errors in the
                 // front end rather than the back end. We currently re-run this during ilxgen.fs but there's

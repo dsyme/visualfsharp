@@ -360,6 +360,17 @@ let nullableSlotEmpty() = Unchecked.defaultof<'T>
 let nullableSlotFull x = x
 //#endif    
 
+[<Struct>]
+type NonNullInlineOption<'T when 'T : not struct> = 
+    val value : 'T
+    new (v: 'T) = { value = v }
+    member x.IsSome = (match box x.value with null -> false | _ -> true)
+    member x.IsNone = (match box x.value with null -> true | _ -> false)
+    member x.Value = (match box x.value with null -> failwith "value is not present" | _ -> x.value)
+
+//NonNullInlineOption<string>()
+//NonNullInlineOption<string>("a")
+
 //---------------------------------------------------------------------------
 // Caches, mainly for free variables
 //---------------------------------------------------------------------------

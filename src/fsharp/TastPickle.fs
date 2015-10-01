@@ -1838,18 +1838,18 @@ and p_ValData x st =
       (p_option p_const)
       (p_space 1)
       ( x.val_logical_name,
-        x.val_compiled_name,
+        x.Fat.val_compiled_name,
         // only keep range information on published values, not on optimization data
-        (if x.val_repr_info.IsSome then Some(x.val_range, x.val_defn_range) else None),
+        (if x.Fat.val_repr_info.IsSome then Some(x.val_range, x.Fat.val_defn_range) else None),
         x.val_type,
-        x.val_flags.PickledBits,
-        x.val_member_info,
-        x.val_attribs,
-        x.val_repr_info,
-        x.val_xmldocsig,
-        x.val_access,
-        x.val_actual_parent,
-        x.val_const,
+        x.Fat.val_flags.PickledBits,
+        x.Fat.val_member_info,
+        x.Fat.val_attribs,
+        x.Fat.val_repr_info,
+        x.Fat.val_xmldocsig,
+        x.Fat.val_access,
+        x.Fat.val_actual_parent,
+        x.Fat.val_const,
         space) st
       
 and p_Val x st = 
@@ -2127,22 +2127,24 @@ and u_ValData st =
         (u_option u_const) 
         (u_space 1) st
     { val_logical_name=x1;
-      val_compiled_name=x1z;
       val_range=(match x1a with None -> range0 | Some(a,_) -> a);
-      val_defn_range=(match x1a with None -> range0 | Some(_,b) -> b);
       val_type=x2;
       val_stamp=newStamp();
-      val_flags=ValFlags(x4);
-      val_defn = None;
-      val_member_info=x8;
-      val_attribs=x9;
-      val_repr_info=x10;
-      val_xmldoc=XmlDoc.Empty;
-      val_xmldocsig=x12;
-      val_access=x13;
-      val_actual_parent=x13b;
-      val_const=x14;
-    }
+      val_fat = 
+         NonNullInlineOption
+            // TODO re-establish FAT
+            { val_compiled_name=x1z;
+              val_defn_range=(match x1a with None -> range0 | Some(_,b) -> b);
+              val_flags=ValFlags(x4);
+              val_defn = None;
+              val_member_info=x8;
+              val_attribs=x9;
+              val_repr_info=x10;
+              val_xmldoc=XmlDoc.Empty;
+              val_xmldocsig=x12;
+              val_access=x13;
+              val_actual_parent=x13b;
+              val_const=x14; }  }
 
 and u_Val st = u_osgn_decl st.ivals u_ValData st 
 
