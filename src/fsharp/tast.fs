@@ -237,6 +237,7 @@ type ValFlags(flags:int64) =
         // Clear the HasBeenReferenced, only used to report "unreferenced variable" warnings and to help collect 'it' values in FSI.EXE
         // Clear the IsGeneratedEventVal, since there's no use in propagating specialname information for generated add/remove event vals
                                                       (flags       &&&    ~~~0b011001100000000000L) 
+    member x.Value = flags
 
 /// Represents the kind of a type parameter
 [<RequireQualifiedAccess>]
@@ -1998,7 +1999,9 @@ and
 
     /// Range of the definition (implementation) of the value, used by Visual Studio 
     /// Updated by mutation when the implementation is matched against the signature. 
-    member x.DefinitionRange            = x.Data.Fat.val_defn_range
+    member x.DefinitionRange            = 
+        let fat = x.Data.val_fat 
+        if fat.IsSome then  fat.Value.val_defn_range else x.Data.val_range
 
     /// The value of a value or member marked with [<LiteralAttribute>] 
     member x.LiteralValue               = x.Data.Fat.val_const
@@ -2048,10 +2051,10 @@ and
 
 
     /// Is this a member definition or module definition?
-    member x.IsMemberOrModuleBinding    = x.Data.Fat.val_flags.IsMemberOrModuleBinding
+    member x.IsMemberOrModuleBinding    = x.Data.val_flags.IsMemberOrModuleBinding
 
     /// Indicates if this is an F#-defined extension member
-    member x.IsExtensionMember          = x.Data.Fat.val_flags.IsExtensionMember
+    member x.IsExtensionMember          = x.Data.val_flags.IsExtensionMember
 
     /// The quotation expression associated with a value given the [<ReflectedDefinition>] tag
     member x.ReflectedDefinition        = x.Data.Fat.val_defn
@@ -2099,38 +2102,38 @@ and
         | _ -> false
             
     /// Indicates if this is declared 'mutable'
-    member x.IsMutable                  = (match x.Data.Fat.val_flags.MutabilityInfo with Immutable -> false | Mutable -> true)
+    member x.IsMutable                  = (match x.Data.val_flags.MutabilityInfo with Immutable -> false | Mutable -> true)
 
     /// Indicates if this is inferred to be a method or function that definitely makes no critical tailcalls?
-    member x.MakesNoCriticalTailcalls = x.Data.Fat.val_flags.MakesNoCriticalTailcalls
+    member x.MakesNoCriticalTailcalls = x.Data.val_flags.MakesNoCriticalTailcalls
     
     /// Indicates if this is ever referenced?
-    member x.HasBeenReferenced = x.Data.Fat.val_flags.HasBeenReferenced
+    member x.HasBeenReferenced = x.Data.val_flags.HasBeenReferenced
 
     /// Indicates if the backing field for a static value is suppressed.
-    member x.IsCompiledAsStaticPropertyWithoutField = x.Data.Fat.val_flags.IsCompiledAsStaticPropertyWithoutField
+    member x.IsCompiledAsStaticPropertyWithoutField = x.Data.val_flags.IsCompiledAsStaticPropertyWithoutField
 
     /// Indicates if this value allows the use of an explicit type instantiation (i.e. does it itself have explicit type arguments,
     /// or does it have a signature?)
-    member x.PermitsExplicitTypeInstantiation = x.Data.Fat.val_flags.PermitsExplicitTypeInstantiation
+    member x.PermitsExplicitTypeInstantiation = x.Data.val_flags.PermitsExplicitTypeInstantiation
 
     /// Indicates if this is a member generated from the de-sugaring of 'let' function bindings in the implicit class syntax?
-    member x.IsIncrClassGeneratedMember     = x.IsCompilerGenerated && x.Data.Fat.val_flags.IsIncrClassSpecialMember
+    member x.IsIncrClassGeneratedMember     = x.IsCompilerGenerated && x.Data.val_flags.IsIncrClassSpecialMember
 
     /// Indicates if this is a constructor member generated from the de-sugaring of implicit constructor for a class type?
-    member x.IsIncrClassConstructor = x.IsConstructor && x.Data.Fat.val_flags.IsIncrClassSpecialMember
+    member x.IsIncrClassConstructor = x.IsConstructor && x.Data.val_flags.IsIncrClassSpecialMember
 
     /// Get the information about the value used during type inference
-    member x.RecursiveValInfo           = x.Data.Fat.val_flags.RecursiveValInfo
+    member x.RecursiveValInfo           = x.Data.val_flags.RecursiveValInfo
 
     /// Indicates if this is a 'base' or 'this' value?
-    member x.BaseOrThisInfo             = x.Data.Fat.val_flags.BaseOrThisInfo
+    member x.BaseOrThisInfo             = x.Data.val_flags.BaseOrThisInfo
 
     //  Indicates if this value was declared to be a type function, e.g. "let f<'a> = typeof<'a>"
-    member x.IsTypeFunction             = x.Data.Fat.val_flags.IsTypeFunction
+    member x.IsTypeFunction             = x.Data.val_flags.IsTypeFunction
 
     /// Get the inline declaration on the value
-    member x.InlineInfo                 = x.Data.Fat.val_flags.InlineInfo
+    member x.InlineInfo                 = x.Data.val_flags.InlineInfo
 
     /// Indicates whether the inline declaration for the value indicate that the value must be inlined?
     member x.MustInline                 = mustinline(x.InlineInfo)
@@ -2138,7 +2141,7 @@ and
     /// Indicates whether this value was generated by the compiler.
     ///
     /// Note: this is true for the overrides generated by hash/compare augmentations
-    member x.IsCompilerGenerated        = x.Data.Fat.val_flags.IsCompilerGenerated
+    member x.IsCompilerGenerated        = x.Data.val_flags.IsCompilerGenerated
     
     /// Get the declared attributes for the value
     member x.Attribs                    = x.Data.Fat.val_attribs
@@ -2297,11 +2300,16 @@ and
     member x.DisplayName = 
         DemangleOperatorName x.CoreDisplayName
 
-    member x.SetValRec b                                 = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetRecursiveValInfo b)
-    member x.SetIsMemberOrModuleBinding()                = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetIsMemberOrModuleBinding)
-    member x.SetMakesNoCriticalTailcalls()               = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetMakesNoCriticalTailcalls)
-    member x.SetHasBeenReferenced()                      = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetHasBeenReferenced)
-    member x.SetIsCompiledAsStaticPropertyWithoutField() = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetIsCompiledAsStaticPropertyWithoutField)
+    //member x.SetValRec b                                 = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetRecursiveValInfo b)
+    //member x.SetIsMemberOrModuleBinding()                = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetIsMemberOrModuleBinding)
+    //member x.SetMakesNoCriticalTailcalls()               = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetMakesNoCriticalTailcalls)
+    //member x.SetHasBeenReferenced()                      = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetHasBeenReferenced)
+    //member x.SetIsCompiledAsStaticPropertyWithoutField() = x.Data.SetFat (fun d -> d.val_flags <- d.val_flags.SetIsCompiledAsStaticPropertyWithoutField)
+    member x.SetValRec b                                 = x.Data.val_flags <- x.Data.val_flags.SetRecursiveValInfo b
+    member x.SetIsMemberOrModuleBinding()                = x.Data.val_flags <- x.Data.val_flags.SetIsMemberOrModuleBinding
+    member x.SetMakesNoCriticalTailcalls()               = x.Data.val_flags <- x.Data.val_flags.SetMakesNoCriticalTailcalls
+    member x.SetHasBeenReferenced()                      = x.Data.val_flags <- x.Data.val_flags.SetHasBeenReferenced
+    member x.SetIsCompiledAsStaticPropertyWithoutField() = x.Data.val_flags <- x.Data.val_flags.SetIsCompiledAsStaticPropertyWithoutField
     member x.SetValReprInfo info                          = x.Data.SetFat (fun d -> d.val_repr_info <- info)
     member x.SetType ty                                  = x.Data.val_type <- ty
     member x.SetDefnRange m                              = x.Data.SetFat (fun d -> d.val_defn_range <- m)
@@ -2327,8 +2335,6 @@ and
     ValDataFat  =
     { val_compiled_name: string option
       mutable val_defn_range: range  
-      /// See vflags section further below for encoding/decodings here 
-      mutable val_flags: ValFlags
       mutable val_const: Const option
       
       /// What is the original, unoptimized, closed-term definition, if any? 
@@ -2369,12 +2375,33 @@ and
       mutable val_xmldocsig : string } 
 
 and ValDataFatStatics()  =
-    static let dflt = 
+#if DIAGNOSTICS
+    static let mutable created =  0
+    static let mutable amortized = 0
+    static let mutable deamortized = 0
+    static let mutable miss_val_compiled_name = 0
+    static let mutable miss_val_defn_range = 0
+    //static let mutable miss_val_flags = 0
+    static let mutable miss_val_const = 0
+    static let mutable miss_val_defn = 0
+    static let mutable miss_val_access = 0
+    static let mutable miss_val_member_info = 0
+    static let mutable miss_val_attribs = 0
+    static let mutable miss_val_repr_info = 0
+    static let mutable miss_val_actual_parent = 0
+    static let mutable miss_val_xmldoc = 0
+    static let mutable miss_val_xmldocsig = 0
+#endif
+
+    //static let valFlagsDefault = 
+    //    ValFlags(ValNotInRecScope,NormalVal,isCompGen=false,inlineInfo=ValInline.Optional,isMutable=Immutable,
+    //             isModuleOrMemberBinding=false,isExtensionMember=false,
+    //             isIncrClassSpecialMember=false,isTyFunc=false,allowTypeInst=false,isGeneratedEventVal=false)
+
+    static let valDataFatDefault = 
         { val_compiled_name = None
           val_defn_range = range0
-          val_flags = ValFlags(ValNotInRecScope,NormalVal,isCompGen=false,inlineInfo=ValInline.Optional,isMutable=Immutable,
-                               isModuleOrMemberBinding=false,isExtensionMember=false,
-                               isIncrClassSpecialMember=false,isTyFunc=false,allowTypeInst=false,isGeneratedEventVal=false)
+          //val_flags = valFlagsDefault
           val_const=None
           val_defn=None
           val_access=TAccess []
@@ -2384,7 +2411,72 @@ and ValDataFatStatics()  =
           val_actual_parent=ParentNone
           val_xmldoc =XmlDoc.Empty
           val_xmldocsig = ""} 
-    static member Default = dflt
+
+#if DIAGNOSTICS
+    static let report () = 
+        if created % 50 = 0 then 
+            let unamortized = created - amortized
+            printfn "ValData created = %d" created
+            printfn "ValData amortized = %d (%f%%)" amortized (100.0 * float amortized / float created)
+            printfn "ValData deamortized = %d (%f%%)" deamortized (100.0 * float deamortized / float created)
+            printfn "ValData survied amortized = %d (%f%%)" amortized (100.0 * float (amortized - deamortized)  / float created)
+            printfn "initial miss reason val_compiled_name %f%%" (100.0 * float miss_val_compiled_name / float unamortized)
+            printfn "initial miss reason val_defn_range %f%%" (100.0 * float miss_val_defn_range / float unamortized)
+            //printfn "initial miss reason val_flags %f%%" (100.0 * float miss_val_flags / float unamortized)
+            printfn "initial miss reason val_const %f%%" (100.0 * float miss_val_const / float unamortized)
+            printfn "initial miss reason val_defn %f%%" (100.0 * float miss_val_defn / float unamortized)
+            printfn "initial miss reason val_access %f%%" (100.0 * float miss_val_access / float unamortized)
+            printfn "initial miss reason val_member_info %f%%" (100.0 * float miss_val_member_info / float unamortized)
+            printfn "initial miss reason val_attribs %f%%" (100.0 * float miss_val_attribs / float unamortized)
+            printfn "initial miss reason val_repr_info %f%%" (100.0 * float miss_val_repr_info / float unamortized)
+            printfn "initial miss reason val_actual_parent %f%%" (100.0 * float miss_val_actual_parent / float unamortized)
+            printfn "initial miss reason val_xmldoc %f%%" (100.0 * float miss_val_xmldoc / float unamortized)
+            printfn "initial miss reason val_xmldocsig %f%%" (100.0 * float miss_val_xmldocsig / float unamortized)
+#endif
+
+    static member Default = valDataFatDefault
+
+    static member Deamortize () = 
+        let copyOfDefault = { ValDataFatStatics.Default with val_compiled_name=None } 
+#if DIAGNOSTICS
+        deamortized <- deamortized + 1
+        report()
+#endif
+        SlimOption copyOfDefault
+
+    static member Create val_range (v:ValDataFat) = 
+        let isSame = 
+            v.val_compiled_name.IsNone &&
+            v.val_defn_range = val_range &&
+            //v.val_flags.Value = valFlagsDefault.Value &&
+            v.val_const.IsNone &&
+            v.val_defn.IsNone &&
+            (match v.val_access with TAccess [] -> true | _ -> false) &&
+            v.val_member_info.IsNone &&
+            v.val_attribs.IsEmpty && 
+            v.val_repr_info.IsNone &&
+            (match v.val_actual_parent with ParentNone -> true | _ -> false) &&
+            v.val_xmldoc = XmlDoc.Empty &&
+            v.val_xmldocsig = "" 
+#if DIAGNOSTICS
+        created <- created + 1
+        if isSame then amortized <- amortized + 1
+        if v.val_compiled_name.IsSome then miss_val_compiled_name <- miss_val_compiled_name + 1
+        if v.val_defn_range <> val_range then miss_val_defn_range  <- miss_val_defn_range + 1
+        //if v.val_flags.Value <> valFlagsDefault.Value then miss_val_flags <- miss_val_flags + 1 
+        if v.val_const.IsSome then miss_val_const <- miss_val_const + 1 
+        if v.val_defn.IsSome then miss_val_defn <- miss_val_defn + 1 
+        if not (match v.val_access with TAccess [] -> true | _ -> false) then miss_val_access <- miss_val_access + 1
+        if not v.val_member_info.IsNone then miss_val_member_info  <- miss_val_member_info + 1
+        if not v.val_attribs.IsEmpty then miss_val_attribs <- miss_val_attribs + 1 
+        if not v.val_repr_info.IsNone then miss_val_repr_info <- miss_val_repr_info + 1
+        if not (match v.val_actual_parent with ParentNone -> true | _ -> false) then miss_val_actual_parent <- miss_val_actual_parent + 1
+        if not  (v.val_xmldoc = XmlDoc.Empty) then miss_val_xmldoc <- miss_val_xmldoc + 1
+        if not (v.val_xmldocsig = "") then miss_val_xmldocsig <- miss_val_xmldocsig + 1
+        report()
+#endif
+        if isSame then SlimOption.None else SlimOption.Some v 
+
 
 and 
     [<NoEquality; NoComparison >]
@@ -2394,13 +2486,16 @@ and
       val_range: range
       mutable val_type: TType
       val_stamp: Stamp 
-      mutable val_fat: NonNullInlineOption<ValDataFat> } 
+      /// See vflags section further below for encoding/decodings here 
+      mutable val_flags: ValFlags
+      mutable val_fat: SlimOption<ValDataFat> } 
     member x.Fat = 
         if x.val_fat.IsSome then x.val_fat.Value 
         else ValDataFatStatics.Default
     member x.SetFat f = 
+        // Any call to SetFat results in the sharing of the default data being lost
         if x.val_fat.IsNone then 
-            x.val_fat <- NonNullInlineOption { x.val_fat.Value with val_compiled_name=None } 
+            x.val_fat <- ValDataFatStatics.Deamortize ()
         f x.val_fat.Value
 
 
@@ -4544,13 +4639,14 @@ let NewModuleOrNamespace cpath access (id:Ident) xml attribs mtype = Construct.N
 
 let NewVal (logicalName:string,m:range,compiledName,ty,isMutable,isCompGen,arity,access,recValInfo,specialRepr,baseOrThis,attribs,inlineInfo,doc,isModuleOrMemberBinding,isExtensionMember,isIncrClassSpecialMember,isTyFunc,allowTypeInst,isGeneratedEventVal,konst,actualParent) : Val = 
     let stamp = newStamp() 
+    let flags = ValFlags(recValInfo,baseOrThis,isCompGen,inlineInfo,isMutable,isModuleOrMemberBinding,isExtensionMember,isIncrClassSpecialMember,isTyFunc,allowTypeInst,isGeneratedEventVal)
     let fatData = 
          {val_compiled_name= (match compiledName with Some v when v <> logicalName -> compiledName | _ -> None)
           val_defn_range=m
           val_defn=None
           val_repr_info= arity
           val_actual_parent= actualParent
-          val_flags = ValFlags(recValInfo,baseOrThis,isCompGen,inlineInfo,isMutable,isModuleOrMemberBinding,isExtensionMember,isIncrClassSpecialMember,isTyFunc,allowTypeInst,isGeneratedEventVal)
+          //val_flags = flags
           val_const= konst
           val_access=access
           val_member_info=specialRepr
@@ -4562,7 +4658,8 @@ let NewVal (logicalName:string,m:range,compiledName,ty,isMutable,isCompGen,arity
           val_logical_name=logicalName
           val_range=m
           val_type = ty
-          val_fat = NonNullInlineOption fatData }
+          val_flags=flags
+          val_fat = ValDataFatStatics.Create m fatData }
 
 
 let NewCcuContents sref m nm mty =

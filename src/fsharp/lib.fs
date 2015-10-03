@@ -361,15 +361,20 @@ let nullableSlotFull x = x
 //#endif    
 
 [<Struct>]
-type NonNullInlineOption<'T when 'T : not struct> = 
+type SlimOption<'T when 'T : not struct> = 
     val value : 'T
     new (v: 'T) = { value = v }
     member x.IsSome = (match box x.value with null -> false | _ -> true)
     member x.IsNone = (match box x.value with null -> true | _ -> false)
     member x.Value = (match box x.value with null -> failwith "value is not present" | _ -> x.value)
 
-//NonNullInlineOption<string>()
-//NonNullInlineOption<string>("a")
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module SlimOption = 
+    let Some x = SlimOption<_>(x)
+    let None<'T when 'T : not struct> = Unchecked.defaultof<SlimOption<'T>>
+
+//SlimOption<string>()
+//SlimOption<string>("a")
 
 //---------------------------------------------------------------------------
 // Caches, mainly for free variables

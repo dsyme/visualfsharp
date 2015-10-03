@@ -4444,19 +4444,21 @@ and remapValData g tmenv compgen d =
     let ty' = ty |> remapPossibleForallTy g tmenv
     { d with 
         val_type    = ty';
-        val_fat = remapValFatDataOpt g tmenv ty ty' compgen d.val_fat }
+        
+        val_flags = markAsCompGen compgen d
+        val_fat = remapValFatDataOpt g tmenv ty ty' d.val_fat }
 
-and remapValFatDataOpt g tmenv ty ty' compgen d =
-    if d.IsNone && compgen <> ValCopyFlag.CloneAllAndMarkExprValsAsCompilerGenerated then d 
-    else NonNullInlineOption (remapValFatData g tmenv ty ty' compgen d.Value)
+and remapValFatDataOpt g tmenv ty ty' d =
+    //if d.IsNone && compgen <> ValCopyFlag.CloneAllAndMarkExprValsAsCompilerGenerated then d 
+    if d.IsNone then d 
+    else SlimOption (remapValFatData g tmenv ty ty' d.Value)
 
-and remapValFatData g tmenv ty ty' compgen d =
+and remapValFatData g tmenv ty ty' d =
     { d with 
         val_actual_parent = d.val_actual_parent |> remapParentRef tmenv;
         val_repr_info = d.val_repr_info |> Option.map (remapValReprInfo g tmenv);
         val_member_info   = d.val_member_info |> Option.map (remapMemberInfo g d.val_defn_range  d.val_repr_info ty ty' tmenv);
-        val_attribs       = d.val_attribs       |> remapAttribs g tmenv 
-        val_flags = markAsCompGen compgen d }
+        val_attribs       = d.val_attribs       |> remapAttribs g tmenv  }
 
 and remapParentRef tyenv p =
     match p with 

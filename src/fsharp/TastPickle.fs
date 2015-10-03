@@ -1842,7 +1842,7 @@ and p_ValData x st =
         // only keep range information on published values, not on optimization data
         (if x.Fat.val_repr_info.IsSome then Some(x.val_range, x.Fat.val_defn_range) else None),
         x.val_type,
-        x.Fat.val_flags.PickledBits,
+        x.val_flags.PickledBits,
         x.Fat.val_member_info,
         x.Fat.val_attribs,
         x.Fat.val_repr_info,
@@ -2126,16 +2126,16 @@ and u_ValData st =
         u_parentref
         (u_option u_const) 
         (u_space 1) st
+    let val_range = (match x1a with None -> range0 | Some(a,_) -> a)
     { val_logical_name=x1;
-      val_range=(match x1a with None -> range0 | Some(a,_) -> a);
+      val_range=val_range;
       val_type=x2;
       val_stamp=newStamp();
+      val_flags=ValFlags(x4);
       val_fat = 
-         NonNullInlineOption
-            // TODO re-establish FAT
+          ValDataFatStatics.Create val_range
             { val_compiled_name=x1z;
-              val_defn_range=(match x1a with None -> range0 | Some(_,b) -> b);
-              val_flags=ValFlags(x4);
+              val_defn_range=val_range;
               val_defn = None;
               val_member_info=x8;
               val_attribs=x9;
@@ -2144,7 +2144,7 @@ and u_ValData st =
               val_xmldocsig=x12;
               val_access=x13;
               val_actual_parent=x13b;
-              val_const=x14; }  }
+              val_const=x14 } }
 
 and u_Val st = u_osgn_decl st.ivals u_ValData st 
 
