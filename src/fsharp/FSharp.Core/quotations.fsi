@@ -76,6 +76,13 @@ type Expr =
     /// <returns>The resulting expression.</returns>
     static member AddressSet : target:Expr * value:Expr -> Expr
     
+    /// <summary>Builds an expression that represents setting the value held at a particular address.</summary>
+    /// <param name="target">The target expression.</param>
+    /// <param name="value">The value to set at the address.</param>
+    /// <param name="targetUnitType">The type for FSharp.Core.Unit for the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <returns>The resulting expression.</returns>
+    static member AddressSet : target:Expr * value:Expr * targetUnitType: Type -> Expr
+    
     /// <summary>Builds an expression that represents the application of a first class function value to a single argument.</summary>
     /// <param name="functionExpr">The function to apply.</param>
     /// <param name="argument">The argument to the function.</param>
@@ -122,6 +129,15 @@ type Expr =
     /// <returns>The resulting expression.</returns>
     static member ForIntegerRangeLoop: loopVariable:Var * start:Expr * endExpr:Expr * body:Expr -> Expr 
 
+    /// <summary>Builds a 'for i = ... to ... do ...' expression that represent loops over integer ranges</summary>
+    /// <param name="loopVariable">The sub-expression declaring the loop variable.</param>
+    /// <param name="start">The sub-expression setting the initial value of the loop variable.</param>
+    /// <param name="endExpr">The sub-expression declaring the final value of the loop variable.</param>
+    /// <param name="body">The sub-expression representing the body of the loop.</param>
+    /// <param name="targetUnitType">The type for FSharp.Core.Unit for the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <returns>The resulting expression.</returns>
+    static member ForIntegerRangeLoop: loopVariable:Var * start:Expr * endExpr:Expr * body:Expr * targetUnitType: Type -> Expr 
+
     /// <summary>Builds an expression that represents the access of a static field</summary>
     /// <param name="fieldInfo">The description of the field to access.</param>
     /// <returns>The resulting expression.</returns>
@@ -151,6 +167,13 @@ type Expr =
     /// <param name="body">The body of the function.</param>
     /// <returns>The resulting expression.</returns>
     static member Lambda : parameter:Var * body:Expr -> Expr
+
+    /// <summary>Builds an expression that represents the construction of an F# function value</summary>
+    /// <param name="parameter">The parameter to the function.</param>
+    /// <param name="body">The body of the function.</param>
+    /// <param name="targetFuncTypeDef">The generic type definition for the F# function type of the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <returns>The resulting expression.</returns>
+    static member Lambda : parameter:Var * body:Expr * targetFuncTypeDef:Type -> Expr
 
     /// <summary>Builds expressions associated with 'let' constructs</summary>
     /// <param name="letVariable">The variable in the let expression.</param>
@@ -229,12 +252,29 @@ type Expr =
     /// <returns>The resulting expression.</returns>
     static member PropertySet: obj:Expr * property:PropertyInfo * value:Expr * ?indexerArgs: Expr list -> Expr 
 
+    /// <summary>Builds an expression that represents writing to a property of an object</summary>
+    /// <param name="obj">The input object.</param>
+    /// <param name="property">The description of the property.</param>
+    /// <param name="value">The value to set.</param>
+    /// <param name="targetUnitType">The type for FSharp.Core.Unit for the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <param name="indexerArgs">List of indices for the property if it is an indexed property.</param>
+    /// <returns>The resulting expression.</returns>
+    static member PropertySet: obj:Expr * property:PropertyInfo * value:Expr * targetUnitType: Type * ?indexerArgs: Expr list -> Expr 
+
     /// <summary>Builds an expression that represents writing to a static property </summary>
     /// <param name="property">The description of the property.</param>
     /// <param name="value">The value to set.</param>
     /// <param name="indexerArgs">List of indices for the property if it is an indexed property.</param>
     /// <returns>The resulting expression.</returns>
     static member PropertySet: property:PropertyInfo * value:Expr * ?indexerArgs: Expr list -> Expr 
+
+    /// <summary>Builds an expression that represents writing to a static property </summary>
+    /// <param name="property">The description of the property.</param>
+    /// <param name="value">The value to set.</param>
+    /// <param name="targetUnitType">The type for FSharp.Core.Unit for the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <param name="indexerArgs">List of indices for the property if it is an indexed property.</param>
+    /// <returns>The resulting expression.</returns>
+    static member PropertySet: property:PropertyInfo * value:Expr * targetUnitType: Type * ?indexerArgs: Expr list -> Expr 
 
     /// <summary>Builds an expression that represents a nested typed or raw quotation literal</summary>
     /// <param name="inner">The expression being quoted.</param>
@@ -247,10 +287,23 @@ type Expr =
     /// <returns>The resulting expression.</returns>
     static member QuoteRaw: inner:Expr -> Expr 
 
+    /// <summary>Builds an expression that represents a nested raw quotation literal</summary>
+    /// <param name="inner">The expression being quoted.</param>
+    /// <param name="targetRawExprType">The type for the non-generic FSharp.Quotations.Expr for the target core library.</param>
+    /// <returns>The resulting expression.</returns>
+    static member QuoteRaw: inner:Expr * targetRawExprType: Type -> Expr 
+
     /// <summary>Builds an expression that represents a nested typed quotation literal</summary>
     /// <param name="inner">The expression being quoted.</param>
     /// <returns>The resulting expression.</returns>
     static member QuoteTyped: inner:Expr -> Expr 
+
+
+    /// <summary>Builds an expression that represents a nested typed quotation literal</summary>
+    /// <param name="inner">The expression being quoted.</param>
+    /// <param name="targetExprTypeDef">The generic type definition for FSharp.Quotations.Expr for the target core library.</param>
+    /// <returns>The resulting expression.</returns>
+    static member QuoteTyped: inner:Expr * targetExprTypeDef: Type -> Expr 
 
     /// <summary>Builds an expression that represents the sequential execution of one expression followed by another</summary>
     /// <param name="first">The first expression.</param>
@@ -291,6 +344,13 @@ type Expr =
     /// <param name="unionCase">The description of the union case.</param>
     /// <returns>The resulting expression.</returns>
     static member UnionCaseTest: source:Expr * unionCase:UnionCaseInfo -> Expr 
+
+    /// <summary>Builds an expression that represents a test of a value is of a particular union case</summary>
+    /// <param name="source">The expression to test.</param>
+    /// <param name="unionCase">The description of the union case.</param>
+    /// <param name="targetBoolType">The type for System.Boolean for the target core library.</param>
+    /// <returns>The resulting expression.</returns>
+    static member UnionCaseTest: source:Expr * unionCase:UnionCaseInfo * targetBoolType: Type -> Expr 
 
     /// <summary>Builds an expression that represents a constant value of a particular type</summary>
     /// <param name="value">The untyped object.</param>
@@ -342,6 +402,13 @@ type Expr =
     /// <param name="value">The value to set.</param>
     /// <returns>The resulting expression.</returns>
     static member VarSet : variable:Var * value:Expr -> Expr
+    
+    /// <summary>Builds an expression that represents setting a mutable variable</summary>
+    /// <param name="variable">The input variable.</param>
+    /// <param name="value">The value to set.</param>
+    /// <param name="targetUnitType">The type for FSharp.Core.Unit for the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <returns>The resulting expression.</returns>
+    static member VarSet : variable:Var * value:Expr * targetUnitType: Type -> Expr
     
     /// <summary>Builds an expression that represents a while loop</summary>
     /// <param name="guard">The predicate to control the loop iteration.</param>
@@ -421,6 +488,106 @@ and [<CompiledName("FSharpExpr`1")>]
         inherit Expr
         /// <summary>Gets the raw expression associated with this type-carrying expression</summary>
         member Raw : Expr
+
+
+/// <summary>Helpers to generate specifc quotation shapes for an alternative target framework and core library. </summary>
+[<CompiledName("FSharpExprTarget"); Class>]
+type ExprTarget =
+    
+    /// <summary>Create helpers for an alternative target framework and core library.</summary>
+    /// <param name="targetUnitType">The type for FSharp.Core.Unit for the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <param name="targetFuncTypeDef">The generic type definition for the F# function type of the target core library. Used when creating quotations for other target core libraries.</param>
+    /// <param name="targetRawExprType">The type for the non-generic FSharp.Quotations.Expr for the target core library.</param>
+    /// <returns>The helpers for the alternative target.</returns>
+    static member Create : targetUnitType: Type * targetBoolType: Type * targetFuncTypeDef: Type * targetExprTypeDef: Type * targetRawExprType: Type  -> Expr
+
+    /// <summary>Builds an expression that represents setting the value held at a particular address.</summary>
+    /// <param name="target">The target expression.</param>
+    /// <param name="value">The value to set at the address.</param>
+    /// <returns>The resulting expression.</returns>
+    member AddressSet : target:Expr * value:Expr -> Expr
+    
+    /// <summary>Builds an expression that represents a call to an static method or module-bound function</summary>
+    /// <param name="methodInfo">The MethodInfo describing the method to call.</param>
+    /// <param name="arguments">The list of arguments to the method.</param>
+    /// <returns>The resulting expression.</returns>
+    member Call : methodInfo:MethodInfo * arguments:list<Expr> -> Expr
+
+    /// <summary>Builds an expression that represents a call to an instance method associated with an object</summary>
+    /// <param name="obj">The input object.</param>
+    /// <param name="methodInfo">The description of the method to call.</param>
+    /// <param name="arguments">The list of arguments to the method.</param>
+    /// <returns>The resulting expression.</returns>
+    member Call : obj:Expr * methodInfo:MethodInfo * arguments:list<Expr> -> Expr
+
+    /// <summary>Builds a 'for i = ... to ... do ...' expression that represent loops over integer ranges</summary>
+    /// <param name="loopVariable">The sub-expression declaring the loop variable.</param>
+    /// <param name="start">The sub-expression setting the initial value of the loop variable.</param>
+    /// <param name="endExpr">The sub-expression declaring the final value of the loop variable.</param>
+    /// <param name="body">The sub-expression representing the body of the loop.</param>
+    /// <returns>The resulting expression.</returns>
+    member ForIntegerRangeLoop: loopVariable:Var * start:Expr * endExpr:Expr * body:Expr -> Expr 
+
+    /// <summary>Builds an expression that represents writing to a static field </summary>
+    /// <param name="fieldInfo">The description of the field to write to.</param>
+    /// <param name="value">The value to the set to the field.</param>
+    /// <returns>The resulting expression.</returns>
+    member FieldSet: fieldInfo:FieldInfo * value:Expr -> Expr 
+
+    /// <summary>Builds an expression that represents writing to a field of an object</summary>
+    /// <param name="obj">The input object.</param>
+    /// <param name="fieldInfo">The description of the field to write to.</param>
+    /// <param name="value">The value to set to the field.</param>
+    /// <returns>The resulting expression.</returns>
+    member FieldSet: obj:Expr * fieldInfo:FieldInfo * value:Expr -> Expr 
+
+    /// <summary>Builds an expression that represents the construction of an F# function value</summary>
+    /// <param name="parameter">The parameter to the function.</param>
+    /// <param name="body">The body of the function.</param>
+    /// <returns>The resulting expression.</returns>
+    member Lambda : parameter:Var * body:Expr -> Expr
+
+    /// <summary>Builds an expression that represents the creation of an F# tuple value</summary>
+    /// <param name="elements">The list of elements of the tuple.</param>
+    /// <returns>The resulting expression.</returns>
+    member NewTuple: elements:Expr list -> Expr 
+
+    /// <summary>Builds an expression that represents writing to a property of an object</summary>
+    /// <param name="obj">The input object.</param>
+    /// <param name="property">The description of the property.</param>
+    /// <param name="value">The value to set.</param>
+    /// <returns>The resulting expression.</returns>
+    member PropertySet: obj:Expr * property:PropertyInfo * value:Expr * ?indexerArgs: Expr list -> Expr 
+
+    /// <summary>Builds an expression that represents writing to a static property </summary>
+    /// <param name="property">The description of the property.</param>
+    /// <param name="value">The value to set.</param>
+    /// <param name="indexerArgs">List of indices for the property if it is an indexed property.</param>
+    /// <returns>The resulting expression.</returns>
+    member PropertySet: property:PropertyInfo * value:Expr * ?indexerArgs: Expr list -> Expr 
+
+    /// <summary>Builds an expression that represents a nested raw quotation literal</summary>
+    /// <param name="inner">The expression being quoted.</param>
+    /// <returns>The resulting expression.</returns>
+    member QuoteRaw: inner:Expr -> Expr 
+
+    /// <summary>Builds an expression that represents a nested typed quotation literal</summary>
+    /// <param name="inner">The expression being quoted.</param>
+    /// <returns>The resulting expression.</returns>
+    member QuoteTyped: inner:Expr -> Expr 
+
+    /// <summary>Builds an expression that represents setting a mutable variable</summary>
+    /// <param name="variable">The input variable.</param>
+    /// <param name="value">The value to set.</param>
+    /// <returns>The resulting expression.</returns>
+    member VarSet : variable:Var * value:Expr -> Expr
+    
+    /// <summary>Builds an expression that represents a while loop</summary>
+    /// <param name="guard">The predicate to control the loop iteration.</param>
+    /// <param name="body">The body of the while loop.</param>
+    /// <returns>The resulting expression.</returns>
+    member WhileLoop : guard:Expr * body:Expr -> Expr
+
 
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
