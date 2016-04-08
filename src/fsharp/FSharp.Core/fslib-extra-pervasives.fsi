@@ -223,6 +223,8 @@ namespace Microsoft.FSharp.Core.CompilerServices
         member Line : int with get, set
         member Column : int with get, set
 
+
+
     [<AttributeUsageAttribute(AttributeTargets.Class ||| AttributeTargets.Interface ||| AttributeTargets.Struct ||| AttributeTargets.Delegate, AllowMultiple = false)>]
     /// <summary>Indicates that a code editor should hide all System.Object methods from the intellisense menus for instances of a provided type</summary>
     type TypeProviderEditorHideMethodsAttribute = 
@@ -375,3 +377,157 @@ namespace Microsoft.FSharp.Core.CompilerServices
         abstract ApplyStaticArgumentsForMethod : methodWithoutArguments:MethodBase * methodNameWithArguments:string * staticArguments:obj[] -> MethodBase
 
 #endif
+
+namespace Microsoft.FSharp.Core.CompilerServices.TypeProviders
+
+    open System
+    open System.Reflection
+    open System.Linq.Expressions
+    open System.Collections.Generic
+    open Microsoft.FSharp.Core
+    open Microsoft.FSharp.Collections
+
+    type IProvidedStaticParameter  = 
+        abstract Name : string
+        abstract ParameterType : Type // simple types only allowed here
+        abstract OptionalValue : obj option
+        abstract CustomAttributes : seq<CustomAttributeData>
+
+    type IProvidedParameter  = 
+        abstract Name : string
+        abstract ParameterType : IProvidedTypeInfo 
+        abstract OptionalValue : obj option
+        abstract IsOut : bool
+        abstract CustomAttributes : seq<CustomAttributeData>
+ 
+    and IProvidedConstructor = 
+        //abstract DeclaringType    : IProvidedTypeDefinition
+        abstract Parameters       : IProvidedParameter[]
+        abstract CustomAttributes : seq<CustomAttributeData>
+        abstract GetImplementation : IProvidedExpression[] -> IProvidedExpression
+
+
+    and IProvidedMethod =
+        abstract Name              : string
+        abstract Parameters        : IProvidedParameter[]
+        abstract ReturnType        : IProvidedTypeInfo 
+        abstract CustomAttributes  : seq<CustomAttributeData>
+        abstract IsStatic          : bool
+        abstract GetImplementation : IProvidedExpression[] -> IProvidedExpression
+
+    and IProvidedProperty = 
+        abstract Name            : string 
+        abstract IsStatic        : bool
+        abstract PropertyType    : IProvidedTypeInfo
+        abstract GetMethod       : IProvidedAssociatedMethod option
+        abstract SetMethod       : IProvidedAssociatedMethod option
+        abstract IndexParameters : IProvidedParameter[]
+        abstract CustomAttributes : seq<CustomAttributeData>
+
+    and IProvidedAssociatedMethod =
+        abstract GetImplementation : IProvidedExpression[] -> IProvidedExpression
+
+    and IProvidedEvent = 
+        abstract Name : string
+        abstract IsStatic        : bool
+        abstract EventHandlerType : IProvidedTypeInfo
+        abstract AddMethod : IProvidedAssociatedMethod
+        abstract RemoveMethod : IProvidedAssociatedMethod
+        abstract CustomAttributes : seq<CustomAttributeData>
+
+    and IProvidedField  = 
+        abstract Name : string  
+        abstract FieldType : IProvidedTypeInfo
+        abstract LiteralValue : obj 
+        abstract CustomAttributes : seq<CustomAttributeData>
+
+    /// Algebra of types
+    and [<NoEquality; NoComparison>] IProvidedTypeInfo = 
+        | TyApp of IProvidedTypeDefinition * IProvidedTypeInfo[]
+        | TyArray of int * IProvidedTypeInfo
+        | TyPointer of IProvidedTypeInfo
+        | TyByRef of IProvidedTypeInfo
+
+    and IProvidedTypeDefinition =
+        abstract Name : string
+        abstract Assembly : System.Reflection.Assembly
+        abstract Namespace : string option
+        abstract DeclaringType : IProvidedTypeDefinition option // needed if this is nested
+
+        abstract BaseType : IProvidedTypeInfo option
+        abstract DeclaredInterfaces : seq<IProvidedTypeInfo>
+
+        abstract DeclaredProperties: seq<IProvidedProperty>
+        abstract DeclaredMethods: seq<IProvidedMethod>
+        abstract DeclaredEvents: seq<IProvidedEvent>
+        abstract DeclaredFields: seq<IProvidedField>
+        abstract DeclaredNestedTypes : seq<IProvidedTypeDefinition>
+
+        abstract GetNestedType : name:string * declaredOnly: bool -> IProvidedTypeDefinition option
+    
+        abstract StaticParameters : IProvidedStaticParameter[]
+        abstract ApplyStaticArguments : string[] * obj[] -> IProvidedTypeDefinition  
+        abstract CustomAttributes : seq<CustomAttributeData>
+        //abstract UnderlyingSystemType = inp.UnderlyingSystemType |> TxTypeSymbol
+
+    and [<NoEquality; NoComparison>] IProvidedExpression = 
+        ABC | DEF
+
+    and IProvidedNamespace3 = 
+
+        /// The sub-namespaces in this namespace. An optional member to prevent generation of namespaces until an outer namespace is explored.
+        abstract NestedNamespaces : IProvidedNamespace3[]
+
+        /// Namespace name the provider injects types into.
+        abstract NamespaceName : string
+        /// <summary>
+        /// The top-level types
+        /// </summary>
+        /// <returns></returns>
+        abstract TypeDefinitions : IProvidedTypeDefinition[]
+
+        /// <summary>
+        /// Compilers call this method to query a type provider for a type <c>name</c>.
+        /// </summary>
+        /// <remarks>Resolver should return a type called <c>name</c> in namespace <c>NamespaceName</c> or <c>null</c> if the type is unknown.
+        /// </remarks>
+        /// <returns></returns>
+        abstract GetTypeDefinition : name:string -> IProvidedTypeDefinition option
+
+    and ITypeProvider3 = 
+        abstract Namespaces : IProvidedNamespace3[]
+        [<CLIEvent>]
+
+        /// <summary>
+        /// Triggered when an assumption changes that invalidates the resolutions so far reported by the provider
+        /// </summary>
+        abstract Invalidate : Microsoft.FSharp.Control.IEvent<System.EventHandler, System.EventArgs>
+        inherit System.IDisposable 
+
+    /// If the class that implements ITypeProvider has a constructor that accepts TypeProviderConfig
+    /// then it will be constructed with an instance of TypeProviderConfig.
+    type ITypeProviderConfig2 =
+
+        /// Get the full path to use to resolve relative paths in any file name arguments given to the type provider instance.
+        abstract ResolutionFolder : string with get,set
+
+        /// Get the full path to referenced assembly that caused this type provider instance to be created.
+        abstract RuntimeAssembly : string with get,set
+
+        /// Get the referenced assemblies for the type provider instance.
+        abstract ReferencedAssemblies : string[] with get,set
+
+        /// Get the full path to use for temporary files for the type provider instance.
+        abstract TemporaryFolder : string with get,set
+
+        /// Indicates if the type provider host responds to invalidation events for type provider instances. 
+        abstract IsInvalidationSupported : bool with get,set
+
+        /// Indicates if the type provider instance is used in an environment which executes provided code such as F# Interactive.
+        abstract IsHostedExecution : bool with get,set
+
+        /// Checks if given type exists in the type context
+        abstract ResolveType : string -> IProvidedTypeDefinition
+
+
+
