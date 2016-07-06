@@ -1844,6 +1844,8 @@ module CheckNoPumpingBecauseWeTrampolineSynchronousCode =
                 Application.Exit() } 
              |> Async.StartImmediate)
 
+    form.WindowState <- FormWindowState.Minimized
+    form.ShowInTaskbar <- false
     Application.Run form             
     // Set the synchronization context back to its original value
     System.Threading.SynchronizationContext.SetSynchronizationContext(null);
@@ -2095,7 +2097,6 @@ let aa = if not failures.IsEmpty then exit 1 else stdout.WriteLine "Test Passed"
 let _ = 
   if not failures.IsEmpty then (stdout.WriteLine("Test Failed, failures = {0}", failures); exit 1) 
   else (stdout.WriteLine "Test Passed"; 
-        log "ALL OK, HAPPY HOLIDAYS, MERRY CHRISTMAS!"
         System.IO.File.WriteAllText("test.ok","ok"); 
 // debug: why is the fsi test failing?  is it because test.ok does not exist?
         if System.IO.File.Exists("test.ok") then

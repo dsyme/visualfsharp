@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+// Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 %{
 
@@ -30,7 +30,8 @@ let debugPrint(s) = ignore s
 let exprFromParseError (e:SynExpr) = SynExpr.FromParseError(e,e.Range)
 let patFromParseError (e:SynPat) = SynPat.FromParseError(e, e.Range)
 
-let mkSynOptionalExpr m xopt = 
+let mkSynOptionalExpr (m: range) xopt = 
+    let m = m.MakeSynthetic()
     match xopt with 
     | None -> mkSynLidGet m Ast.FSharpLib.CorePath "None"
     | Some x  -> SynExpr.App(ExprAtomicFlag.NonAtomic, false, mkSynLidGet m Ast.FSharpLib.CorePath "Some",x,m)
@@ -251,6 +252,7 @@ let rangeOfLongIdent(lid:LongIdent) =
 %token OBLOCKEND OBLOCKEND_COMING_SOON OBLOCKEND_IS_HERE       /* LexFilter #light inserts when closing CtxtSeqBlock(_,_,AddBlockEnd) */
 
 %token OINTERFACE_MEMBER /* inserted for non-paranthetical use of 'INTERFACE', i.e. not INTERFACE/END */
+%token FIXED
 %token <token> ODUMMY
 
 /* These are artificial */
@@ -258,12 +260,13 @@ let rangeOfLongIdent(lid:LongIdent) =
 %token <Ast.LexerWhitespaceContinuation> COMMENT WHITESPACE HASH_LINE HASH_LIGHT INACTIVECODE LINE_COMMENT STRING_TEXT EOF
 %token <range * string * Ast.LexerWhitespaceContinuation> HASH_IF HASH_ELSE HASH_ENDIF 
 
-%start signatureFile implementationFile interaction 
+%start signatureFile implementationFile interaction typedSeqExprEOF typEOF
+%type <Ast.SynExpr> typedSeqExprEOF
 %type <Ast.ParsedImplFile> implementationFile
 %type <Ast.ParsedSigFile> signatureFile
 %type <Ast.ParsedFsiInteraction> interaction
 %type <Ast.Ident> ident
-%type <Ast.SynType> typ
+%type <Ast.SynType> typ typEOF
 %type <Ast.SynTypeDefnSig list> tyconSpfns
 %type <Ast.SynExpr> patternResult
 %type <Ast.SynExpr> declExpr
@@ -279,7 +282,7 @@ let rangeOfLongIdent(lid:LongIdent) =
 %type <(Ast.SynEnumCase, Ast.SynUnionCase) Choice list> unionTypeRepr
 %type <Ast.SynMemberDefns> tyconDefnAugmentation
 %type <Ast.SynExceptionDefn> exconDefn
-%type <Ast.SynExceptionRepr> exconCore
+%type <Ast.SynExceptionDefnRepr> exconCore
 %type <Ast.SynModuleDecl list> moduleDefnsOrExprPossiblyEmptyOrBlock
 %type <Ast.LongIdentWithDots> openDecl
 %type <Ast.LongIdentWithDots> path
@@ -495,10 +498,9 @@ interaction:
      { IDefns ([],lhs parseState) }
 
 
-/* The terminator of an interaction in F# Interactive */
 interactiveTerminator: 
   | SEMICOLON_SEMICOLON {}
-  | EOF     {}
+  | EOF     { checkEndOfFileError $1 }
 
 
 /* An group of items considered to be one interaction, plus a terminator */
@@ -615,28 +617,28 @@ signatureFile:
 
 /* The start of a module declaration */
 moduleIntro: 
-  | moduleKeyword opt_access path 
-      { $3.Lid,grabXmlDoc(parseState,1),$2 }
+  | moduleKeyword opt_access opt_rec path 
+      { $3, $4.Lid, grabXmlDoc(parseState,1), $2 }
 
 
 /* The start of a namespace declaration */
 namespaceIntro: 
-  | NAMESPACE path 
-      { $2.Lid,grabXmlDoc(parseState,1)  }
+  | NAMESPACE opt_rec path 
+      { $2, $3.Lid, grabXmlDoc(parseState,1)  }
 
 
 /* The contents of a signature file */
 fileNamespaceSpecs: 
   | fileModuleSpec  
-      { ParsedSigFile([],[ ($1 ([],PreXmlDoc.Empty)) ]) }
+      { ParsedSigFile([],[ ($1 (false,[],PreXmlDoc.Empty)) ]) }
 
   | fileModuleSpec  fileNamespaceSpecList 
       { // If there are namespaces, the first fileModuleImpl may only contain # directives 
         let decls = 
-            match ($1 ([],PreXmlDoc.Empty)) with 
+            match ($1 (false,[],PreXmlDoc.Empty)) with 
             | ParsedSigFileFragment.AnonModule(decls,m) -> decls  
-            | ParsedSigFileFragment.NamespaceFragment(_,_, decls, _,_,_) -> decls 
-            | ParsedSigFileFragment.NamedModule(SynModuleOrNamespaceSig(_,_,_,_,_,_,m)) ->
+            | ParsedSigFileFragment.NamespaceFragment(_,_,_, decls, _,_,_) -> decls 
+            | ParsedSigFileFragment.NamedModule(SynModuleOrNamespaceSig(_,_,_,_,_,_,_,m)) ->
                 raiseParseErrorAt m (FSComp.SR.parsOnlyHashDirectivesAllowed())
         let decls = 
             decls |> List.collect (function 
@@ -656,7 +658,7 @@ fileNamespaceSpecList:
 
 fileNamespaceSpec: 
   | namespaceIntro deprecated_opt_equals fileModuleSpec 
-     { let path,xml = $1 in ($3 (path,xml)) }
+     { let isRec,path,xml = $1 in ($3 (isRec,path,xml)) }
 
 
 /* The single module declaration that can make up a signature file */
@@ -665,18 +667,18 @@ fileModuleSpec:
     { if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
       let m2 = rhs parseState 3
       let m = (rhs2 parseState 3 4)
-      (fun (path,_) -> 
+      let isRec,path2,xml,vis = $3 
+      (fun (isRec2,path,_) -> 
         if nonNil path then errorR(Error(FSComp.SR.parsNamespaceOrModuleNotBoth(),m2));
-        let path2,xml,vis = $3 
         let lid = path@path2 
-        ParsedSigFileFragment.NamedModule(SynModuleOrNamespaceSig(lid,true, $4, xml,$1,vis,m)))  }
+        ParsedSigFileFragment.NamedModule(SynModuleOrNamespaceSig(lid, (isRec || isRec2), true, $4, xml,$1,vis,m)))  }
 
   | moduleSpfnsPossiblyEmptyBlock 
     { let m = (rhs parseState 1) 
-      (fun (path,xml) -> 
+      (fun (isRec, path, xml) -> 
         match path with 
         | [] -> ParsedSigFileFragment.AnonModule($1, m)  
-        | _ -> ParsedSigFileFragment.NamespaceFragment(path,false, $1, xml,[],m))  } 
+        | _ -> ParsedSigFileFragment.NamespaceFragment(path, isRec, false, $1, xml,[],m))  } 
 
 
 moduleSpfnsPossiblyEmptyBlock: 
@@ -727,18 +729,20 @@ moduleSpfn:
 
   | opt_attributes opt_declVisibility moduleIntro colonOrEquals namedModuleAbbrevBlock 
       { if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
-        let path,xml,vis = $3 
+        let isRec, path, xml, vis = $3 
+        if isRec then raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsInvalidUseOfRec());
         if List.length path <> 1 then raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsModuleAbbreviationMustBeSimpleName());
         if List.length $1 <> 0   then raiseParseErrorAt (rhs parseState 1) (FSComp.SR.parsIgnoreAttributesOnModuleAbbreviation());
         if isSome(vis)           then raiseParseErrorAt (rhs parseState 1) (FSComp.SR.parsIgnoreVisibilityOnModuleAbbreviationAlwaysPrivate());
         SynModuleSigDecl.ModuleAbbrev(List.head path,$5,rhs2 parseState 3 5) } 
 
   | opt_attributes opt_declVisibility  moduleIntro colonOrEquals moduleSpecBlock
-      { let path,xml,vis = $3 
+      { let isRec, path, xml, vis = $3 
         if List.length path <> 1 then raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsModuleDefnMustBeSimpleName());
+        if isRec then raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsInvalidUseOfRec());
         let info = ComponentInfo($1,[],[],path,xml,false,vis,rhs parseState 3)
         if isSome($2) then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
-        SynModuleSigDecl.NestedModule(info,$5,rhs2 parseState 3 5) }
+        SynModuleSigDecl.NestedModule(info, isRec, $5, rhs2 parseState 3 5) }
 
   | opt_attributes opt_declVisibility  tyconSpfns 
       { if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
@@ -751,8 +755,8 @@ moduleSpfn:
 
   | opt_attributes opt_declVisibility exconSpfn
       { if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
-        let (ExceptionSig(ExceptionDefnRepr(cas,a,b,c,d,d2),e,f)) = $3 
-        let ec = (ExceptionSig(ExceptionDefnRepr($1@cas,a,b,c,d,d2),e,f)) 
+        let (SynExceptionSig(SynExceptionDefnRepr(cas,a,b,c,d,d2),e,f)) = $3 
+        let ec = (SynExceptionSig(SynExceptionDefnRepr($1@cas,a,b,c,d,d2),e,f)) 
         SynModuleSigDecl.Exception(ec, rhs parseState 3) }
 
   | OPEN path 
@@ -1001,7 +1005,6 @@ classMemberSpfnGetSetElements:
          raiseParseErrorAt (rhs2 parseState 1 3) (FSComp.SR.parsGetOrSetRequired());
       MemberKind.PropertyGetSet }
 
-
 memberSpecFlags: 
   | memberFlags { $1 }  
   | ABSTRACT        { (false,AbstractMemberFlags) }
@@ -1011,7 +1014,7 @@ memberSpecFlags:
 /* Part of an exception definition in a signature file */
 exconSpfn: 
   | exconCore opt_classSpfn 
-     { ExceptionSig($1,$2,lhs parseState) }
+     { SynExceptionSig($1,$2,lhs parseState) }
   
 
 /* The optional augmentation on a type definition in a signature */
@@ -1045,15 +1048,15 @@ implementationFile:
 /* The sequence of namespace definitions or a single module definition that makes up an implementation file */
 fileNamespaceImpls: 
   | fileModuleImpl   
-      { ParsedImplFile([], [ ($1 ([],PreXmlDoc.Empty)) ]) }
+      { ParsedImplFile([], [ ($1 (false,[],PreXmlDoc.Empty)) ]) }
 
   | fileModuleImpl fileNamespaceImplList 
       { // If there are namespaces, the first fileModuleImpl may only contain # directives 
         let decls = 
-            match ($1 ([],PreXmlDoc.Empty)) with 
+            match ($1 (false,[],PreXmlDoc.Empty)) with 
             | ParsedImplFileFragment.AnonModule(decls,m) -> decls  
-            | ParsedImplFileFragment.NamespaceFragment(_,_, decls, _,_,_) -> decls 
-            | ParsedImplFileFragment.NamedModule(SynModuleOrNamespace(_,_,_,_,_,_,m)) ->
+            | ParsedImplFileFragment.NamespaceFragment(_,_,_, decls, _,_,_) -> decls 
+            | ParsedImplFileFragment.NamedModule(SynModuleOrNamespace(_,_,_,_,_,_,_,m)) ->
                 raiseParseErrorAt m (FSComp.SR.parsOnlyHashDirectivesAllowed())
         let decls = 
             decls |> List.collect (function 
@@ -1076,7 +1079,7 @@ fileNamespaceImplList:
 /* A single namespace definition in an implementation file */
 fileNamespaceImpl: 
   | namespaceIntro deprecated_opt_equals fileModuleImpl 
-     { let path,xml = $1 in ($3 (path,xml)) }
+     { let isRec, path, xml = $1 in ($3 (isRec, path, xml)) }
 
 
 /* A single module definition in an implementation file */
@@ -1085,18 +1088,18 @@ fileModuleImpl:
     { if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
       let m2 = rhs parseState 3
       let m = (m2, $4) ||> unionRangeWithListBy (fun modu -> modu.Range)
-      (fun (path,_) -> 
+      let isRec2,path2,xml,vis = $3 
+      (fun (isRec, path, _) -> 
         if nonNil path then errorR(Error(FSComp.SR.parsNamespaceOrModuleNotBoth(),m2));
-        let path2,xml,vis = $3 
         let lid = path@path2 
-        ParsedImplFileFragment.NamedModule(SynModuleOrNamespace(lid,true, $4, xml,$1,vis,m))) }
+        ParsedImplFileFragment.NamedModule(SynModuleOrNamespace(lid, (isRec || isRec2), true, $4, xml,$1,vis,m))) }
 
   | moduleDefnsOrExprPossiblyEmptyOrBlock 
     { let m = (rhs parseState 1) 
-      (fun (path,xml) -> 
+      (fun (isRec, path, xml) -> 
         match path with 
         | [] -> ParsedImplFileFragment.AnonModule($1,m)  
-        | _ -> ParsedImplFileFragment.NamespaceFragment(path,false, $1, xml,[],m)) } 
+        | _ -> ParsedImplFileFragment.NamespaceFragment(path, isRec, false, $1, xml,[],m)) } 
 
 
 /* A collection/block of definitions or expressions making up a module or namespace, possibly empty */
@@ -1212,18 +1215,19 @@ moduleDefn:
   /* 'exception' definitions */
   | opt_attributes opt_declVisibility exconDefn
       { if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
-        let (ExceptionDefn(ExceptionDefnRepr(cas,a,b,c,d,d2),e,f)) = $3 
+        let (SynExceptionDefn(SynExceptionDefnRepr(cas,a,b,c,d,d2),e,f)) = $3 
         let f = (f, $1) ||> unionRangeWithListBy (fun a -> a.Range)
-        let ec = (ExceptionDefn(ExceptionDefnRepr($1@cas,a,b,c,d,d2),e,f)) 
+        let ec = (SynExceptionDefn(SynExceptionDefnRepr($1@cas,a,b,c,d,d2),e,f)) 
         [ SynModuleDecl.Exception(ec, f) ] }
 
   /* 'module' definitions */
   | opt_attributes opt_declVisibility moduleIntro EQUALS  namedModuleDefnBlock
       { if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
-        let attribs,(path,xml,vis) = $1,$3 
+        let attribs, (isRec, path, xml, vis) = $1,$3 
         match $5 with 
         | Choice1Of2 eqn -> 
             if isSome $2 then errorR(Error(FSComp.SR.parsVisibilityDeclarationsShouldComePriorToIdentifier(),rhs parseState 2));
+            if isRec then raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsInvalidUseOfRec());
             if List.length path <> 1 then raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsModuleAbbreviationMustBeSimpleName());
             if List.length $1 <> 0   then raiseParseErrorAt (rhs parseState 1) (FSComp.SR.parsIgnoreAttributesOnModuleAbbreviation());
             if isSome vis            then raiseParseErrorAt (rhs parseState 1) (FSComp.SR.parsIgnoreAttributesOnModuleAbbreviationAlwaysPrivate());
@@ -1231,7 +1235,7 @@ moduleDefn:
         | Choice2Of2 def -> 
             if List.length path <> 1 then raiseParseErrorAt (rhs parseState 3) (FSComp.SR.parsModuleAbbreviationMustBeSimpleName());
             let info = ComponentInfo(attribs,[],[],path,xml,false,vis,rhs parseState 3)
-            [ SynModuleDecl.NestedModule(info,def,false,(rhs2 parseState 3 4, def) ||> unionRangeWithListBy (fun d -> d.Range) ) ] }
+            [ SynModuleDecl.NestedModule(info, isRec, def, false,(rhs2 parseState 3 4, def) ||> unionRangeWithListBy (fun d -> d.Range) ) ] }
 
   /* unattached custom attributes */
   | attributes recover
@@ -1445,8 +1449,10 @@ tyconDefn:
          match tcDefRepr with
          | SynTypeDefnRepr.ObjectModel (k,cspec,m) -> SynTypeDefnRepr.ObjectModel (k,memberCtorPattern::cspec,m)
          | _ -> reportParseErrorAt (rhs2 parseState 1 5) (FSComp.SR.parsOnlyClassCanTakeValueArguments()); tcDefRepr
-      
-       TypeDefn($1,tcDefRepr,members, unionRanges (rhs parseState 1) tcDefRepr.Range)  }
+       let declRange = unionRanges (rhs parseState 1) tcDefRepr.Range
+       let mWhole = (declRange, members) ||> unionRangeWithListBy (fun (mem:SynMemberDefn) -> mem.Range)
+       
+       TypeDefn($1,tcDefRepr,members,mWhole) }
 
 
 /* The right-hand-side of a type definition */
@@ -2308,7 +2314,7 @@ fieldDecl:
 /* An exception definition */
 exconDefn: 
   | exconCore opt_classDefn 
-     { ExceptionDefn($1,$2, ($1.Range,$2) ||> unionRangeWithListBy (fun cd -> cd.Range) ) }
+     { SynExceptionDefn($1,$2, ($1.Range,$2) ||> unionRangeWithListBy (fun cd -> cd.Range) ) }
 
 /* Part of an exception definition */
 exceptionAndGrabDoc:
@@ -2317,7 +2323,7 @@ exceptionAndGrabDoc:
 /* Part of an exception definition */
 exconCore: 
   | exceptionAndGrabDoc opt_attributes opt_access exconIntro exconRepr 
-     { ExceptionDefnRepr($2,$4,$5,$1,$3,(match $5 with None -> rhs2 parseState 1 4 | Some p -> unionRanges (rangeOfLongIdent p) (rhs2 parseState 1 4))) }
+     { SynExceptionDefnRepr($2,$4,$5,$1,$3,(match $5 with None -> rhs2 parseState 1 4 | Some p -> unionRanges (rangeOfLongIdent p) (rhs2 parseState 1 4))) }
   
 /* Part of an exception definition */
 exconIntro: 
@@ -2826,6 +2832,16 @@ atomicPattern:
   | LPAREN recover 
       {  reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()); 
          SynPat.Wild (lhs parseState)}  
+  | STRUCT LPAREN tupleParenPatternElements rparen
+      { SynPat.StructTuple(List.rev $3,lhs parseState) }
+  | STRUCT LPAREN tupleParenPatternElements recover
+      { reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()); 
+        SynPat.StructTuple(List.rev $3,lhs parseState) }
+  | STRUCT LPAREN error rparen 
+      { (* silent recovery *) SynPat.Wild (lhs parseState) }
+  | STRUCT LPAREN recover 
+      {  reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()); 
+         SynPat.Wild (lhs parseState)}  
 
   
       
@@ -2938,6 +2954,9 @@ typedSeqExpr:
   | seqExpr COLON               typeWithTypeConstraints { SynExpr.Typed ($1,$3, unionRanges $1.Range $3.Range) }
   | seqExpr { $1 }
 
+typedSeqExprEOF:
+  | typedSeqExpr EOF { checkEndOfFileError $2; $1 }
+
 seqExpr:
   | declExpr seps seqExpr
       { SynExpr.Sequential(SequencePointsAtSeq,true,$1,$3,unionRanges $1.Range $3.Range) } 
@@ -2952,7 +2971,8 @@ seqExpr:
   | hardwhiteLetBindings %prec prec_args_error
      { let hwlb,m = $1
        let mLetKwd,isUse = match hwlb with (BindingSetPreAttrs(m,_,isUse,_,_))  -> m,isUse
-       reportParseErrorAt mLetKwd (FSComp.SR.parsExpectedStatementAfterLet(if isUse then "use" else "let"))
+       let usedKeyword = if isUse then "use" else "let"
+       reportParseErrorAt mLetKwd (FSComp.SR.parsExpectedExpressionAfterLet(usedKeyword,usedKeyword))
        let fauxRange = m.EndRange // zero width range at end of m
        mkLocalBindings (m,hwlb,arbExpr("seqExpr",fauxRange)) }
 
@@ -3275,6 +3295,9 @@ declExpr:
      { let spBind = SequencePointAtForLoop(rhs2 parseState 1 2)
        let (a,b,_) = $2 in SynExpr.ForEach(spBind,SeqExprOnly true,true,a,b,$4,unionRanges (rhs parseState 1) $4.Range) }
 
+  | FIXED declExpr
+     { SynExpr.Fixed($2, (unionRanges (rhs parseState 1) $2.Range)) } 
+
   | RARROW typedSeqExprBlockR 
      { errorR(Error(FSComp.SR.parsArrowUseIsLimited(),lhs parseState));
        SynExpr.YieldOrReturn((true,true),$2, (unionRanges (rhs parseState 1) $2.Range)) } 
@@ -3301,6 +3324,8 @@ declExpr:
   | declExpr  INFIX_COMPARE_OP      declExpr { mkSynInfix (rhs parseState 2) $1 $2 $3 }
   | declExpr  DOLLAR                declExpr { mkSynInfix (rhs parseState 2) $1 "$" $3 }
   | declExpr  LESS                  declExpr { mkSynInfix (rhs parseState 2) $1 "<" $3 }
+  | declExpr  LESS                  recover { if not $3 then reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnfinishedExpression("<"));  
+                                              exprFromParseError (mkSynInfix (rhs parseState 2) $1 "<" (arbExpr("declExprInfix",(rhs parseState 3).StartRange))) }
   | declExpr  GREATER               declExpr { mkSynInfix (rhs parseState 2) $1 ">" $3 }
   | declExpr  INFIX_AT_HAT_OP       declExpr { mkSynInfix (rhs parseState 2) $1 $2 $3 }
   | declExpr  PERCENT_OP            declExpr { mkSynInfix (rhs parseState 2) $1 $2 $3 }
@@ -3577,6 +3602,11 @@ atomicExpr:
       { reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedBracket()); 
         // silent recovery 
         exprFromParseError (SynExpr.ArrayOrList(false,[ ], rhs parseState 1)),false  } 
+  | STRUCT LPAREN tupleExpr rparen  
+      { let exprs,commas = $3 in SynExpr.StructTuple(List.rev exprs, List.rev commas, (commas.Head, exprs) ||> unionRangeWithListBy (fun e -> e.Range) ), false }
+  | STRUCT LPAREN tupleExpr recover  
+      { reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedBracket()); 
+        let exprs,commas = $3 in SynExpr.StructTuple(List.rev exprs, List.rev commas, (commas.Head, exprs) ||> unionRangeWithListBy (fun e -> e.Range) ), false }
   | atomicExprAfterType 
       { $1,false }
 
@@ -4218,6 +4248,9 @@ typ:
   | tupleType %prec prec_typ_prefix 
      { $1 }
 
+typEOF:
+  | typ EOF { checkEndOfFileError $2; $1 }
+
 
 tupleType:
   | appType STAR tupleOrQuotTypeElements 
@@ -4396,6 +4429,25 @@ atomType:
   | LPAREN typ recover      
      { reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnmatchedParen()) 
        $2 }  
+
+  | STRUCT LPAREN appType STAR tupleOrQuotTypeElements  rparen 
+    { SynType.StructTuple((false,$3) :: $5,lhs parseState) }
+
+  | STRUCT LPAREN appType STAR tupleOrQuotTypeElements  recover
+    { reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
+      SynType.StructTuple((false,$3) :: $5,lhs parseState) }
+
+  | STRUCT LPAREN appType STAR recover
+    { reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
+      SynType.Anon (lhs parseState) }
+
+  | STRUCT LPAREN appType recover
+    { reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
+      SynType.Anon (lhs parseState) }
+
+  | STRUCT LPAREN recover
+    { reportParseErrorAt (rhs parseState 2) (FSComp.SR.parsUnmatchedParen()) 
+      SynType.Anon (lhs parseState) }
 
   | rawConstant 
      { SynType.StaticConstant($1, rhs parseState 1) }
@@ -4580,7 +4632,8 @@ typar:
 staticallyKnownHeadTypar: 
   | INFIX_AT_HAT_OP ident 
     {  if $1 <> "^" then reportParseErrorAt (rhs parseState 1) (FSComp.SR.parsUnexpectedTypeParameter());
-       Typar($2,HeadTypeStaticReq,false) }
+       let id = mkSynId (lhs parseState) ($2).idText
+       Typar(id,HeadTypeStaticReq,false) }
 
   
 

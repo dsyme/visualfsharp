@@ -1,7 +1,12 @@
-// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+// Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 module internal Microsoft.FSharp.Compiler.CommandLineMain
 
+open System
+open System.Diagnostics
+open System.IO
+open System.Reflection
+open System.Runtime.CompilerServices
 open Microsoft.FSharp.Compiler
 open Microsoft.FSharp.Compiler.AbstractIL.IL // runningOnMono 
 open Microsoft.FSharp.Compiler.ErrorLogger
@@ -9,16 +14,16 @@ open Microsoft.FSharp.Compiler.Driver
 open Internal.Utilities
 open Microsoft.FSharp.Compiler.Lib
 open Microsoft.FSharp.Compiler.Range
-open Microsoft.FSharp.Compiler.Build
-open System.Runtime.CompilerServices
+open Microsoft.FSharp.Compiler.CompileOps
 
+#if FX_RESHAPED_REFLECTION
+open Microsoft.FSharp.Core.ReflectionAdapters
+#endif
+
+#if FX_RESIDENT_COMPILER
 /// Implement the optional resident compilation service
 module FSharpResidentCompiler = 
 
-    open System
-    open System.Diagnostics
-    open System.IO
-    open System.Reflection
     open System.Runtime.Remoting.Channels
     open System.Runtime.Remoting
     open System.Runtime.Remoting.Lifetime
@@ -30,10 +35,10 @@ module FSharpResidentCompiler =
         let output = ResizeArray()
         let outWriter isOut = 
             { new TextWriter() with 
-                 member x.Write(c:char) = lock output (fun () -> output.Add (isOut, (try Some System.Console.ForegroundColor with _ -> None) ,c)) 
+                 member x.Write(c:char) = lock output (fun () -> output.Add (isOut, (try Some Console.ForegroundColor with _ -> None) ,c)) 
                  member x.Encoding = Encoding.UTF8 }
-        do System.Console.SetOut (outWriter true)
-        do System.Console.SetError (outWriter false)
+        do Console.SetOut (outWriter true)
+        do Console.SetError (outWriter false)
         member x.GetTextAndClear() = lock output (fun () -> let res = output.ToArray() in output.Clear(); res)
 
     /// The compilation server, which runs in the server process. Accessed by clients using .NET remoting.
@@ -50,9 +55,21 @@ module FSharpResidentCompiler =
         static let userName = Environment.GetEnvironmentVariable (if onWindows then "USERNAME" else "USER") 
         // Use different base channel names on mono and CLR as a CLR remoting process can't talk
         // to a mono server
-        static let baseChannelName = if runningOnMono then "FSCChannelMono" else "FSCChannel"
+        static let baseChannelName = 
+#if ENABLE_MONO_SUPPORT
+            if runningOnMono then 
+                "FSCChannelMono" 
+            else 
+#endif
+                "FSCChannel"
         static let channelName = baseChannelName + "_" +  domainName + "_" + userName
-        static let serverName = if runningOnMono then "FSCServerMono" else "FSCSever"
+        static let serverName = 
+#if ENABLE_MONO_SUPPORT
+            if runningOnMono then 
+                "FSCServerMono" 
+            else
+#endif
+                "FSCSever"
         static let mutable serverExists = true
         
         let outputCollector = new OutputCollector()
@@ -79,7 +96,7 @@ module FSharpResidentCompiler =
                               // Exit the server if there are no outstanding requests and the 
                               // current memory usage after collection is over 200MB
                               if inbox.CurrentQueueLength = 0 && GC.GetTotalMemory(true) > 200L * 1024L * 1024L then 
-                                  Environment.Exit 0
+                                  exit 0
                        })
 
         member x.Run() = 
@@ -117,9 +134,10 @@ module FSharpResidentCompiler =
 
             // On Unix, the file permissions of the implicit socket need to be set correctly to make this
             // private to the user.
+#if ENABLE_MONO_SUPPORT
             if runningOnMono then 
               try 
-                  let monoPosix = System.Reflection.Assembly.Load("Mono.Posix, Version=2.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756")
+                  let monoPosix = System.Reflection.Assembly.Load(new System.Reflection.AssemblyName("Mono.Posix, Version=2.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756"))
                   let monoUnixFileInfo = monoPosix.GetType("Mono.Unix.UnixFileSystemInfo") 
                   let socketName = Path.Combine(Path.GetTempPath(), channelName)
                   let fileEntry = monoUnixFileInfo.InvokeMember("GetFileSystemEntry", (BindingFlags.InvokeMethod ||| BindingFlags.Static ||| BindingFlags.Public), null, null, [| box socketName |],System.Globalization.CultureInfo.InvariantCulture)
@@ -137,6 +155,7 @@ module FSharpResidentCompiler =
 #endif
                   ()
                   // Fail silently
+#endif
             server.Run()
             
         static member private ConnectToServer() =
@@ -156,6 +175,7 @@ module FSharpResidentCompiler =
                     Some client
                 with _ ->
                     let procInfo = 
+#if ENABLE_MONO_SUPPORT
                         if runningOnMono then
                             let shellName, useShellExecute = 
                                 match System.Environment.GetEnvironmentVariable("FSC_MONO") with 
@@ -172,11 +192,11 @@ module FSharpResidentCompiler =
                                              CreateNoWindow = true,
                                              UseShellExecute = useShellExecute)
                          else
+#endif
                             ProcessStartInfo(FileName=typeof<FSharpCompilationServer>.Assembly.Location,
                                              Arguments = "/server",
                                              CreateNoWindow = true,
                                              UseShellExecute = false)
-
                     let cmdProcess = new Process(StartInfo=procInfo)
 
                     //let exitE = cmdProcess.Exited |> Observable.map (fun x -> x)
@@ -229,7 +249,7 @@ module FSharpResidentCompiler =
                                      Console.ForegroundColor <- consoleColor; 
                              | None -> ()
                         with _ -> ()
-                        c |> (if isOut then System.Console.Out.Write else System.Console.Error.Write)
+                        c |> (if isOut then Console.Out.Write else Console.Error.Write)
                     Some exitCode
                 with err -> 
                    let sb = System.Text.StringBuilder()
@@ -239,13 +259,26 @@ module FSharpResidentCompiler =
                    None
             | None -> 
                 None
+#endif
 
 module Driver = 
     let main argv = 
         // Check for --pause as the very first step so that a compiler can be attached here.
         if argv |> Array.exists  (fun x -> x = "/pause" || x = "--pause") then 
-            System.Console.WriteLine("Press any key to continue...")
-            System.Console.ReadKey() |> ignore
+            System.Console.WriteLine("Press return to continue...")
+            System.Console.ReadLine() |> ignore
+
+        let quitProcessExiter = 
+            { new Exiter with 
+                member x.Exit(n) =                    
+                    try 
+                      exit n
+                    with _ -> 
+                      ()            
+                    failwithf "%s" <| FSComp.SR.elSysEnvExitDidntExit() 
+            }
+
+#if ENABLE_MONO_SUPPORT
         if runningOnMono && argv |> Array.exists  (fun x -> x = "/resident" || x = "--resident") then 
             let argv = argv |> Array.filter (fun x -> x <> "/resident" && x <> "--resident")
 
@@ -257,7 +290,7 @@ module Driver =
             match exitCodeOpt with 
             | Some exitCode -> exitCode
             | None -> 
-                mainCompile (argv, true, QuitProcessExiter)
+                mainCompile (argv, true, quitProcessExiter)
                 0
 
         elif runningOnMono && argv |> Array.exists  (fun x -> x = "/server" || x = "--server") then 
@@ -267,23 +300,32 @@ module Driver =
             0
         
         else
-            mainCompile (argv, false, QuitProcessExiter)
+            mainCompile (argv, false, quitProcessExiter)
             0 
+#else
+        mainCompile (argv, false, quitProcessExiter)
+        0 
+#endif
 
-
-
-
+#if FX_NO_DEFAULT_DEPENDENCY_TYPE
+#else
 [<Dependency("FSharp.Compiler",LoadHint.Always)>] 
+#endif
 do ()
 
 [<EntryPoint>]
 let main(argv) =
-    use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind (BuildPhase.Parameter)    
+    System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
+    use unwindBuildPhase = PushThreadBuildPhaseUntilUnwind BuildPhase.Parameter
+
+#if NO_HEAPTERMINATION
+#else
     if not runningOnMono then Lib.UnmanagedProcessExecutionOptions.EnableHeapTerminationOnCorruption() (* SDL recommendation *)
+    Lib.UnmanagedProcessExecutionOptions.EnableHeapTerminationOnCorruption() (* SDL recommendation *)
+#endif
 
     try 
         Driver.main(Array.append [| "fsc.exe" |] argv); 
     with e -> 
         errorRecovery e Microsoft.FSharp.Compiler.Range.range0; 
         1
-

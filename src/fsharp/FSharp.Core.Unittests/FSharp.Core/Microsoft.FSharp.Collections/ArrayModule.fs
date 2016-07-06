@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+// Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 // Various tests for the:
 // Microsoft.FSharp.Collections.Array module
@@ -40,6 +40,34 @@ type ArrayModule() =
         Assert.IsTrue( (d = [| |]) )
         ()
 
+
+    [<Test>]
+    member this.AllPairs() =
+        // integer array
+        let resultInt =  Array.allPairs [|1..3|] [|2..2..6|]
+        if resultInt <> [|(1,2);(1,4);(1,6)
+                          (2,2);(2,4);(2,6)
+                          (3,2);(3,4);(3,6)|] then Assert.Fail()
+
+        // string array
+        let resultStr = Array.allPairs [|"A"; "B"; "C" ; "D" |] [|"a";"b";"c";"d"|]
+        if resultStr <> [|("A","a");("A","b");("A","c");("A","d")
+                          ("B","a");("B","b");("B","c");("B","d")
+                          ("C","a");("C","b");("C","c");("C","d")
+                          ("D","a");("D","b");("D","c");("D","d")|] then Assert.Fail()
+
+        // empty array
+        if Array.allPairs [||]     [||] <> [||]  then Assert.Fail()
+        if Array.allPairs [|1..3|] [||] <> [||]  then Assert.Fail()
+        if Array.allPairs [||] [|1..3|] <> [||]  then Assert.Fail()
+
+        // null array
+        let nullArr = null:string[]
+        CheckThrowsArgumentNullException (fun () -> Array.allPairs nullArr nullArr  |> ignore)
+        CheckThrowsArgumentNullException (fun () -> Array.allPairs [||]    nullArr  |> ignore)
+        CheckThrowsArgumentNullException (fun () -> Array.allPairs nullArr [||]     |> ignore)
+
+        ()
 
     [<Test>]
     member this.Append() =
@@ -148,15 +176,17 @@ type ArrayModule() =
     member this.ChunkBySize() =
 
         // int Seq
-        Assert.AreEqual([| [|1..4|]; [|5..8|] |], Array.chunkBySize 4 [|1..8|])
-        Assert.AreEqual([| [|1..4|]; [|5..8|]; [|9..10|] |], Array.chunkBySize 4 [|1..10|])
-        Assert.AreEqual([| [|1|]; [|2|]; [|3|]; [|4|] |], Array.chunkBySize 1 [|1..4|])
+        Assert.IsTrue([| [|1..4|]; [|5..8|] |] = Array.chunkBySize 4 [|1..8|])
+        Assert.IsTrue([| [|1..4|]; [|5..8|]; [|9..10|] |] = Array.chunkBySize 4 [|1..10|])
+        Assert.IsTrue([| [|1|]; [|2|]; [|3|]; [|4|] |] = Array.chunkBySize 1 [|1..4|])
+        Assert.IsTrue([| [|1..3|]; [|4|] |] = Array.chunkBySize 3 [|1..4|])
+        Assert.IsTrue([| [|1..5|]; [|6..10|]; [|11..12|] |] = Array.chunkBySize 5 [|1..12|])
 
         // string Seq
-        Assert.AreEqual([| [|"a"; "b"|]; [|"c";"d"|]; [|"e"|] |], Array.chunkBySize 2 [|"a";"b";"c";"d";"e"|])
+        Assert.IsTrue([| [|"a"; "b"|]; [|"c";"d"|]; [|"e"|] |] = Array.chunkBySize 2 [|"a";"b";"c";"d";"e"|])
 
         // empty Seq
-        Assert.AreEqual([||], Array.chunkBySize 3 [||])
+        Assert.IsTrue([||] = Array.chunkBySize 3 [||])
 
         // null Seq
         let nullArr:_[] = null
@@ -172,18 +202,18 @@ type ArrayModule() =
     member this.SplitInto() =
 
         // int array
-        Assert.AreEqual([| [|1..4|]; [|5..7|]; [|8..10|] |], Array.splitInto 3 [|1..10|])
-        Assert.AreEqual([| [|1..4|]; [|5..8|]; [|9..11|] |], Array.splitInto 3 [|1..11|])
-        Assert.AreEqual([| [|1..4|]; [|5..8|]; [|9..12|] |], Array.splitInto 3 [|1..12|])
+        Assert.IsTrue([| [|1..4|]; [|5..7|]; [|8..10|] |] = Array.splitInto 3 [|1..10|])
+        Assert.IsTrue([| [|1..4|]; [|5..8|]; [|9..11|] |] = Array.splitInto 3 [|1..11|])
+        Assert.IsTrue([| [|1..4|]; [|5..8|]; [|9..12|] |] = Array.splitInto 3 [|1..12|])
 
-        Assert.AreEqual([| [|1..2|]; [|3|]; [|4|]; [|5|] |], Array.splitInto 4 [|1..5|])
-        Assert.AreEqual([| [|1|]; [|2|]; [|3|]; [|4|] |], Array.splitInto 20 [|1..4|])
+        Assert.IsTrue([| [|1..2|]; [|3|]; [|4|]; [|5|] |] = Array.splitInto 4 [|1..5|])
+        Assert.IsTrue([| [|1|]; [|2|]; [|3|]; [|4|] |] = Array.splitInto 20 [|1..4|])
 
         // string array
-        Assert.AreEqual([| [|"a"; "b"|]; [|"c";"d"|]; [|"e"|] |], Array.splitInto 3 [|"a";"b";"c";"d";"e"|])
+        Assert.IsTrue([| [|"a"; "b"|]; [|"c";"d"|]; [|"e"|] |] = Array.splitInto 3 [|"a";"b";"c";"d";"e"|])
 
         // empty array
-        Assert.AreEqual([| |], Array.splitInto 3 [| |])
+        Assert.IsTrue([| |] = Array.splitInto 3 [| |])
 
         // null array
         let nullArr:_[] = null

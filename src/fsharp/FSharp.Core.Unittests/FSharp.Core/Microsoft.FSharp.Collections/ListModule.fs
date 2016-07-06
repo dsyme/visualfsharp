@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+// Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 // Various tests for the:
 // Microsoft.FSharp.Collections.List module
@@ -28,6 +28,28 @@ type ListModule() =
         let c : int list   = List.empty<int>
         let d : string list = List.empty<string>
         
+        ()
+
+    [<Test>]
+    member this.AllPairs() =
+        // integer List
+        let resultInt =  List.allPairs [1..3] [2..2..6]
+        Assert.AreEqual([(1,2);(1,4);(1,6)
+                         (2,2);(2,4);(2,6)
+                         (3,2);(3,4);(3,6)], resultInt)
+
+        // string List
+        let resultStr = List.allPairs [2;3;4;5] ["b";"c";"d";"e"]
+        Assert.AreEqual([(2,"b");(2,"c");(2,"d");(2,"e")
+                         (3,"b");(3,"c");(3,"d");(3,"e")
+                         (4,"b");(4,"c");(4,"d");(4,"e")
+                         (5,"b");(5,"c");(5,"d");(5,"e")] , resultStr)
+
+        // empty List
+        let resultEpt = List.allPairs [] []
+        let empTuple:(obj*obj) list = []
+        Assert.AreEqual(empTuple, resultEpt)
+
         ()
 
     [<Test>]
@@ -112,15 +134,15 @@ type ListModule() =
     member this.ChunkBySize() =
 
         // int list
-        Assert.AreEqual([ [1..4]; [5..8] ], List.chunkBySize 4 [1..8])
-        Assert.AreEqual([ [1..4]; [5..8]; [9..10] ], List.chunkBySize 4 [1..10])
-        Assert.AreEqual([ [1]; [2]; [3]; [4] ], List.chunkBySize 1 [1..4])
+        Assert.IsTrue([ [1..4]; [5..8] ] = List.chunkBySize 4 [1..8])
+        Assert.IsTrue([ [1..4]; [5..8]; [9..10] ] = List.chunkBySize 4 [1..10])
+        Assert.IsTrue([ [1]; [2]; [3]; [4] ] = List.chunkBySize 1 [1..4])
 
         // string list
-        Assert.AreEqual([ ["a"; "b"]; ["c";"d"]; ["e"] ], List.chunkBySize 2 ["a";"b";"c";"d";"e"])
+        Assert.IsTrue([ ["a"; "b"]; ["c";"d"]; ["e"] ] = List.chunkBySize 2 ["a";"b";"c";"d";"e"])
 
         // empty list
-        Assert.AreEqual([], List.chunkBySize 3 [])
+        Assert.IsTrue([] = List.chunkBySize 3 [])
 
         // invalidArg
         CheckThrowsArgumentException (fun () -> List.chunkBySize 0 [1..10] |> ignore)
@@ -132,18 +154,18 @@ type ListModule() =
     member this.SplitInto() =
 
         // int list
-        Assert.AreEqual([ [1..4]; [5..7]; [8..10] ], List.splitInto 3 [1..10])
-        Assert.AreEqual([ [1..4]; [5..8]; [9..11] ], List.splitInto 3 [1..11])
-        Assert.AreEqual([ [1..4]; [5..8]; [9..12] ], List.splitInto 3 [1..12])
+        Assert.IsTrue([ [1..4]; [5..7]; [8..10] ] = List.splitInto 3 [1..10])
+        Assert.IsTrue([ [1..4]; [5..8]; [9..11] ] = List.splitInto 3 [1..11])
+        Assert.IsTrue([ [1..4]; [5..8]; [9..12] ] = List.splitInto 3 [1..12])
 
-        Assert.AreEqual([ [1..2]; [3]; [4]; [5] ], List.splitInto 4 [1..5])
-        Assert.AreEqual([ [1]; [2]; [3]; [4] ], List.splitInto 20 [1..4])
+        Assert.IsTrue([ [1..2]; [3]; [4]; [5] ] = List.splitInto 4 [1..5])
+        Assert.IsTrue([ [1]; [2]; [3]; [4] ] = List.splitInto 20 [1..4])
 
         // string list
-        Assert.AreEqual([ ["a"; "b"]; ["c";"d"]; ["e"] ], List.splitInto 3 ["a";"b";"c";"d";"e"])
+        Assert.IsTrue([ ["a"; "b"]; ["c";"d"]; ["e"] ] = List.splitInto 3 ["a";"b";"c";"d";"e"])
 
         // empty list
-        Assert.AreEqual([], List.splitInto 3 [])
+        Assert.IsTrue([] = List.splitInto 3 [])
 
         // invalidArg
         CheckThrowsArgumentException (fun () -> List.splitInto 0 [1..10] |> ignore)
@@ -166,7 +188,7 @@ type ListModule() =
 
         Assert.AreEqual([null], List.distinct [null])
         let list = new System.Collections.Generic.List<int>()
-        Assert.AreEqual([null, list], List.distinct [null, list])
+        Assert.IsTrue([null, list] = List.distinct [null, list])
 
     [<Test>]
     member this.distinctBy() =
@@ -185,7 +207,7 @@ type ListModule() =
 
         Assert.AreEqual([null], List.distinctBy id [null])
         let list = new System.Collections.Generic.List<int>()
-        Assert.AreEqual([null, list], List.distinctBy id [null, list])
+        Assert.IsTrue([null, list] = List.distinctBy id [null, list])
 
     [<Test>]
     member this.Take() =
@@ -335,7 +357,7 @@ type ListModule() =
         Assert.AreEqual(expectedStrList, List.except strList2 strList1)
 
         // empty list
-        let emptyIntList = []
+        let emptyIntList : int list = []
         Assert.AreEqual([1..100], List.except emptyIntList intList1)
         Assert.AreEqual(emptyIntList, List.except intList1 emptyIntList)
         Assert.AreEqual(emptyIntList, List.except emptyIntList emptyIntList)

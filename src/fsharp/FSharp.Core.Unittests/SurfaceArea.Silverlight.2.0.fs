@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+// Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 namespace FSharp.Core.Unittests.SurfaceArea
 open System.IO
@@ -480,6 +480,7 @@ Microsoft.FSharp.Control.FSharpAsync: Boolean Equals(System.Object)
 Microsoft.FSharp.Control.FSharpAsync: Int32 GetHashCode()
 Microsoft.FSharp.Control.FSharpAsync: Microsoft.FSharp.Control.FSharpAsync`1[Microsoft.FSharp.Control.FSharpAsync`1[T]] StartChild[T](Microsoft.FSharp.Control.FSharpAsync`1[T], Microsoft.FSharp.Core.FSharpOption`1[System.Int32])
 Microsoft.FSharp.Control.FSharpAsync: Microsoft.FSharp.Control.FSharpAsync`1[Microsoft.FSharp.Core.FSharpChoice`2[T,System.Exception]] Catch[T](Microsoft.FSharp.Control.FSharpAsync`1[T])
+Microsoft.FSharp.Control.FSharpAsync: Microsoft.FSharp.Control.FSharpAsync`1[Microsoft.FSharp.Core.FSharpOption`1[T]] Choice[T](System.Collections.Generic.IEnumerable`1[Microsoft.FSharp.Control.FSharpAsync`1[Microsoft.FSharp.Core.FSharpOption`1[T]]])
 Microsoft.FSharp.Control.FSharpAsync: Microsoft.FSharp.Control.FSharpAsync`1[Microsoft.FSharp.Core.Unit] Ignore[T](Microsoft.FSharp.Control.FSharpAsync`1[T])
 Microsoft.FSharp.Control.FSharpAsync: Microsoft.FSharp.Control.FSharpAsync`1[Microsoft.FSharp.Core.Unit] Sleep(Int32)
 Microsoft.FSharp.Control.FSharpAsync: Microsoft.FSharp.Control.FSharpAsync`1[Microsoft.FSharp.Core.Unit] SwitchToContext(System.Threading.SynchronizationContext)
@@ -2643,6 +2644,7 @@ Microsoft.FSharp.Reflection.FSharpType: System.String ToString()
 Microsoft.FSharp.Reflection.FSharpType: System.Tuple`2[System.Type,System.Type] GetFunctionElements(System.Type)
 Microsoft.FSharp.Reflection.FSharpType: System.Type GetType()
 Microsoft.FSharp.Reflection.FSharpType: System.Type MakeFunctionType(System.Type, System.Type)
+Microsoft.FSharp.Reflection.FSharpType: System.Type MakeStructTupleType(System.Type[])
 Microsoft.FSharp.Reflection.FSharpType: System.Type MakeTupleType(System.Type[])
 Microsoft.FSharp.Reflection.FSharpType: System.Type[] GetTupleElements(System.Type)
 Microsoft.FSharp.Reflection.FSharpValue: Boolean Equals(System.Object)

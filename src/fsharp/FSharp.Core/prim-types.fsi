@@ -1,4 +1,4 @@
-// Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
+// Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information.
 
 #nowarn "35" // This construct is deprecated: the treatment of this operator is now handled directly by the F# compiler and its meaning may not be redefined.
 #nowarn "61" // The containing type can use 'null' as a representation value for its nullary union case. This member will be compiled as a static member.
@@ -763,10 +763,8 @@ namespace Microsoft.FSharp.Core
     /// <c>System.Int64</c>.</summary>
     type int64<[<Measure>] 'Measure> = int64
 
-
     /// <summary>Language primitives associated with the F# language</summary>
     module LanguagePrimitives =
-
 
         /// <summary>Compare two values for equality using partial equivalence relation semantics ([nan] &lt;&gt; [nan])</summary>
         /// <param name="e1">The first value.</param>
@@ -881,10 +879,10 @@ namespace Microsoft.FSharp.Core
         val inline FastLimitedGenericEqualityComparer<'T> : limit: int -> System.Collections.Generic.IEqualityComparer<'T> when 'T : equality
 
         /// <summary>Make an F# hash/equality object for the given type</summary>
-        [<CompilerMessage("This function is a compiler instrinsic should not be used directly", 1204, IsHidden=true)>]
+        [<CompilerMessage("This function is a compiler intrinsic should not be used directly", 1204, IsHidden=true)>]
         val FastGenericEqualityComparerFromTable<'T> : System.Collections.Generic.IEqualityComparer<'T> when 'T : equality
 
-        [<CompilerMessage("This function is a compiler instrinsic should not be used directly", 1204, IsHidden=true)>]
+        [<CompilerMessage("This function is a compiler intrinsic should not be used directly", 1204, IsHidden=true)>]
         /// <summary>Make an F# comparer object for the given type</summary>
         val FastGenericComparerFromTable<'T>  : System.Collections.Generic.IComparer<'T> when 'T : comparison 
 
@@ -1015,23 +1013,22 @@ namespace Microsoft.FSharp.Core
         val inline DivideByInt< ^T >  : x:^T -> y:int -> ^T when ^T : (static member DivideByInt : ^T * int -> ^T) 
 
         /// <summary>For compiler use only</summary>
-        [<Sealed>]
-        type (* internal *) ErrorStrings = 
+        module (* internal *) ErrorStrings = 
 
             [<CompilerMessage("This value is for use by compiled F# code and should not be used directly", 1204, IsHidden=true)>]
-            static member InputSequenceEmptyString : string with get
+            val InputSequenceEmptyString : string
 
             [<CompilerMessage("This value is for use by compiled F# code and should not be used directly", 1204, IsHidden=true)>]
-            static member InputArrayEmptyString : string with get
+            val InputArrayEmptyString : string
         
             [<CompilerMessage("This value is for use by compiled F# code and should not be used directly", 1204, IsHidden=true)>]
-            static member AddressOpNotFirstClassString : string with get
+            val AddressOpNotFirstClassString : string
 
             [<CompilerMessage("This value is for use by compiled F# code and should not be used directly", 1204, IsHidden=true)>]
-            static member NoNegateMinValueString : string with get
+            val NoNegateMinValueString : string
                 
             [<CompilerMessage("This value is for use by compiled F# code and should not be used directly", 1204, IsHidden=true)>]
-            static member InputMustBeNonNegativeString : string with get
+            val InputMustBeNonNegativeString : string
                 
 
         //-------------------------------------------------------------------------
@@ -1098,7 +1095,7 @@ namespace Microsoft.FSharp.Core
             val inline GetString : source:string -> index:int -> char
 
             /// <summary>This function implements calls to default constructors
-            /// acccessed by 'new' constraints.</summary>
+            /// accessed by 'new' constraints.</summary>
             [<CompilerMessage("This function is for use by compiled F# code and should not be used directly", 1204, IsHidden=true)>]
             val inline CreateInstance : unit -> 'T when 'T : (new : unit -> 'T)
 
@@ -1279,13 +1276,7 @@ namespace System
         interface IComparable
         new : 'T1 -> Tuple<'T1>
         member Item1 : 'T1 with get
-#if TUPLE_STRUXT
-    [<Struct>]
-    type Tuple<'T1,'T2> = 
-        new : 'T1 * 'T2 -> Tuple<'T1,'T2> 
-        val Item1 : 'T1 
-        val Item2 : 'T2 //                
-#else
+
     type Tuple<'T1,'T2> =  
         interface IStructuralEquatable
         interface IStructuralComparable
@@ -1293,7 +1284,6 @@ namespace System
         new : 'T1 * 'T2 -> Tuple<'T1,'T2>
         member Item1 : 'T1 with get
         member Item2 : 'T2 with get
-#endif
 
     type Tuple<'T1,'T2,'T3> = 
         interface IStructuralEquatable
@@ -1565,7 +1555,7 @@ namespace Microsoft.FSharp.Core
 
     [<AbstractClass>]
     [<Sealed>]
-    /// <summary>Helper functions for converting F# first class function values to and from CLI representaions
+    /// <summary>Helper functions for converting F# first class function values to and from CLI representations
     /// of functions using delegates.</summary>
     type FuncConvert = 
         /// <summary>Convert the given Action delegate object to an F# function value</summary>
@@ -2122,7 +2112,7 @@ namespace Microsoft.FSharp.Core
         [<CompiledName("Ignore")>]
         val inline ignore : value:'T -> unit
 
-        /// <summary>Unboxes a strongly typed value.</summary>
+        /// <summary>Unbox a strongly typed value.</summary>
         /// <param name="value">The boxed value.</param>
         /// <returns>The unboxed result.</returns>
         [<CompiledName("Unbox")>]
@@ -2210,7 +2200,7 @@ namespace Microsoft.FSharp.Core
         /// <returns>The concatenation of the lists.</returns>
         val (@): list1:'T list -> list2:'T list -> 'T list
 
-        /// <summary>Negate a logical value. <c>not true</c> equals <c>false</c> and <c>not false</c> equals <c>true</c></summary>
+        /// <summary>Negate a logical value. Not True equals False and not False equals True</summary>
         /// <param name="value">The value to negate.</param>
         /// <returns>The result of the negation.</returns>
         [<CompiledName("Not")>]
@@ -3390,7 +3380,7 @@ namespace Microsoft.FSharp.Control
     /// <summary>First class event values for arbitrary delegate types.</summary>
     ///
     /// <remarks>F# gives special status to member properties compatible with type IDelegateEvent and 
-    /// tagged with the CLIEventAttribute. In this case the F# compiler generates approriate 
+    /// tagged with the CLIEventAttribute. In this case the F# compiler generates appropriate 
     /// CLI metadata to make the member appear to other CLI languages as a CLI event.</remarks>
     type IDelegateEvent<'Delegate when 'Delegate :> System.Delegate > =
         /// <summary>Connect a handler delegate object to the event. A handler can
@@ -3418,4 +3408,3 @@ namespace Microsoft.FSharp.Control
     /// <summary>First-class listening points (i.e. objects that permit you to register a callback
     /// activated when the event is triggered). </summary>
     type IEvent<'T> = IEvent<Handler<'T>, 'T>
-

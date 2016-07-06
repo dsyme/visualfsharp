@@ -1,4 +1,4 @@
-<!-- Copyright (c) Microsoft Open Technologies, Inc.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information. -->
+<!-- Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information. -->
 
 <!--
 ***********************************************************************************************
@@ -180,7 +180,6 @@ this file.
               ToolPath="$(FscToolPath)"
               TreatWarningsAsErrors="$(TreatWarningsAsErrors)"
               Utf8Output="$(Utf8Output)"
-              ValidateTypeProviders="$(ValidateTypeProviders)"
               VersionFile="$(VersionFile)"
               VisualStudioStyleErrors="$(VisualStudioStyleErrors)"
               WarningLevel="$(WarningLevel)"
@@ -202,14 +201,15 @@ this file.
 
     <Import Project="$(MSBuildBinPath)\Microsoft.Common.targets"/>
 
-  <!--
-      ============================================================
-                                          GenerateTargetFrameworkMonikerAttribute
+        <!--
+            ============================================================
+            GenerateTargetFrameworkMonikerAttribute
 
-      Emit the target framework moniker attribute as  a code fragment into a temporary source file for the compiler.
+            Emit the target framework moniker attribute as  a code 
+            fragment into a temporary source file for the compiler.
 
-      ============================================================
-      -->
+            ============================================================
+        -->
 
     <Target Name="GenerateTargetFrameworkMonikerAttribute" BeforeTargets="BeforeCompile" DependsOnTargets="PrepareForBuild;GetReferenceAssemblyPaths" Inputs="$(MSBuildThisFileFullPath)" Outputs="$(TargetFrameworkMonikerAssemblyAttributesPath)" Condition="'$(GenerateTargetFrameworkAttribute)' == 'true'">
 
