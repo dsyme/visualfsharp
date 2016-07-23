@@ -3785,17 +3785,23 @@ parenExprBody:
 
 staticallyKnownHeadTypars:
   | staticallyKnownHeadTypar 
-      { [$1] }
+      { [SynType.Var($1, rhs parseState 1) ] }
 
   | LPAREN staticallyKnownHeadTyparAlts rparen 
       { List.rev $2 }
 
 staticallyKnownHeadTyparAlts:
-  | staticallyKnownHeadTyparAlts OR staticallyKnownHeadTypar
-      {$3 :: $1}
+  | staticallyKnownHeadTyparAlts OR staticallyKnownHeadTypar 
+      { SynType.Var($3, rhs parseState 3) :: $1}
 
-  | staticallyKnownHeadTypar
-      { [$1] }
+  | staticallyKnownHeadTyparAlts OR path 
+      { SynType.LongIdent($3) :: $1}
+
+  | staticallyKnownHeadTypar 
+      { [SynType.Var($1, rhs parseState 1)] }
+
+  | path %prec prec_atomtyp_path 
+      { [SynType.LongIdent($1)] }
 
 braceExpr:
   | LBRACE braceExprBody rbrace 

@@ -631,8 +631,8 @@ and
     /// F# syntax: &expr, &&expr
     | AddressOf of  bool * SynExpr * range * range
 
-    /// F# syntax: ((typar1 or ... or typarN): (member-dig) expr)
-    | TraitCall of SynTypar list * SynMemberSig * SynExpr * range
+    /// F# syntax: ((typ1 or ... or typN): (member-sig) expr)
+    | TraitCall of SynType list * SynMemberSig * SynExpr * range
 
     /// F# syntax: ... in ... 
     /// Computation expressions only, based on JOIN_IN token from lex filter

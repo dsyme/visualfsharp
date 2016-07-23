@@ -5822,8 +5822,8 @@ and TcExprUndelayed cenv overallTy env tpenv (expr: SynExpr) =
         else
             TcLongIdentThen cenv overallTy env tpenv lidwd [ DelayedApp(ExprAtomicFlag.Atomic, e1, mStmt); MakeDelayedSet(e2,mStmt) ]
 
-    | SynExpr.TraitCall(tps,memSpfn,arg,m) ->
-        let synTypes =  tps |> List.map (fun tp -> SynType.Var(tp,m))
+    | SynExpr.TraitCall(synTypes,memSpfn,arg,m) ->
+        //let synTypes =  tps |> List.map (fun tp -> SynType.Var(tp,m))
         let (TTrait(_,logicalCompiledName,_,argtys,returnTy,_) as traitInfo),tpenv = TcPseudoMemberSpec cenv NewTyparsOK env synTypes tpenv memSpfn m
         if List.contains logicalCompiledName BakedInTraitConstraintNames then 
             warning(BakedInMemberConstraintName(logicalCompiledName,m))
