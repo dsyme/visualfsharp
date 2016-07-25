@@ -4307,6 +4307,9 @@ namespace Microsoft.FSharp.Core
         let ( |KeyValue| ) (kvp : KeyValuePair<'T,'U>) = (kvp.Key, kvp.Value)
 
 
+        [<CompiledName("Trait")>]
+        let inline trait<'T when 'T : struct> = unsafeDefault<'T>
+
         [<CompiledName("Infinity")>]
         let infinity     = System.Double.PositiveInfinity
 
