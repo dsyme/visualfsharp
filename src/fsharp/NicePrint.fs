@@ -796,6 +796,8 @@ module private PrintTypes =
         match tpc with 
         | TyparConstraint.CoercesTo(tpct,_) -> 
             [layoutTyparRefWithInfo denv env tp ^^ wordL ":>" --- layoutTypeWithInfo denv env tpct]
+        | TyparConstraint.Associated(tpct,_) -> 
+            [layoutTyparRefWithInfo denv env tp ^^ wordL "implies" --- layoutTypeWithInfo denv env tpct]
         | TyparConstraint.MayResolveMember(traitInfo,_) ->
             [layoutTraitWithInfo denv env traitInfo]
         | TyparConstraint.DefaultsTo(_,ty,_) ->

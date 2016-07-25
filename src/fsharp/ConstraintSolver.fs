@@ -552,7 +552,9 @@ and SimplifyMeasuresInTypes g param tys =
 
 let SimplifyMeasuresInConstraint g param c =
     match c with
-      | TyparConstraint.DefaultsTo (_,ty,_) | TyparConstraint.CoercesTo(ty,_) -> SimplifyMeasuresInType g false param ty
+      | TyparConstraint.Associated (ty,_) 
+      | TyparConstraint.DefaultsTo (_,ty,_) 
+      | TyparConstraint.CoercesTo(ty,_) -> SimplifyMeasuresInType g false param ty
       | TyparConstraint.SimpleChoice (tys,_) -> SimplifyMeasuresInTypes g param tys
       | TyparConstraint.IsDelegate (ty1,ty2,_) -> SimplifyMeasuresInTypes g param [ty1;ty2]
       | _ -> param
@@ -721,6 +723,7 @@ and solveTypMeetsTyparConstraints (csenv:ConstraintSolverEnv) ndeep m2 trace ty 
       | TyparConstraint.RequiresDefaultConstructor m2 -> SolveTypRequiresDefaultConstructor csenv ndeep m2 trace ty
       | TyparConstraint.SimpleChoice(tys,m2)          -> SolveTypChoice                     csenv ndeep m2 trace ty tys
       | TyparConstraint.CoercesTo(ty2,m2)         -> SolveTypSubsumesTypKeepAbbrevs     csenv ndeep m2 trace ty2 ty
+      | TyparConstraint.Associated _  -> CompleteD
       | TyparConstraint.MayResolveMember(traitInfo,m2) -> 
           SolveMemberConstraint csenv false ndeep m2 trace traitInfo ++ (fun _ -> CompleteD) 
     )))
@@ -886,7 +889,11 @@ and SolveTyparSubtypeOfType (csenv:ConstraintSolverEnv) ndeep m2 trace tp ty1 =
     elif isSealedTy g ty1 then 
         SolveTypEqualsTypKeepAbbrevs csenv ndeep m2 trace (mkTyparTy tp) ty1
     else 
-        AddConstraint csenv ndeep m2 trace tp  (TyparConstraint.CoercesTo(ty1,m))
+        (if isAppTy g ty1 &&  TyconRefHasAttribute g m g.attrib_TraitAttribute (tcrefOfAppTy g ty1) then 
+             AddConstraint csenv ndeep m2 trace tp  (TyparConstraint.Associated(ty1,m))
+         else
+             CompleteD
+        ) ++ (fun () -> AddConstraint csenv ndeep m2 trace tp  (TyparConstraint.CoercesTo(ty1,m)))
 
 and DepthCheck ndeep m = 
   if ndeep > 300 then error(Error(FSComp.SR.csTypeInferenceMaxDepth(),m)) else CompleteD
@@ -1479,6 +1486,8 @@ and AddConstraint (csenv:ConstraintSolverEnv) ndeep m2 trace tp newConstraint  =
                   Iterate2D (SolveTypEqualsTypKeepAbbrevs csenv ndeep m2 trace) argtys1 argtys2 ++ (fun () -> 
                       SolveTypEqualsTypKeepAbbrevs csenv ndeep m2 trace rty1 rty2 ++ (fun () -> 
                          CompleteD))
+
+        //| (TyparConstraint.Associated _, TyparConstraint.Associated _) -> CompleteD
           
         | (TyparConstraint.CoercesTo(ty1,_), 
            TyparConstraint.CoercesTo(ty2,_)) -> 
@@ -1539,6 +1548,9 @@ and AddConstraint (csenv:ConstraintSolverEnv) ndeep m2 trace tp newConstraint  =
 
         | TyparConstraint.CoercesTo(ty1,_),TyparConstraint.CoercesTo(ty2,_) -> 
               ExistsSameHeadTypeInHierarchy g amap m ty1 ty2
+
+        | TyparConstraint.Associated(ty1,_),TyparConstraint.Associated(ty2,_) -> 
+              typeEquiv g ty1 ty2
 
         | TyparConstraint.IsEnum(u1,_),TyparConstraint.IsEnum(u2,_) -> typeEquiv g u1 u2
 
