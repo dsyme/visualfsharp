@@ -779,6 +779,7 @@ let BuildNewDelegateExpr (eventInfoOpt:EventInfo option, g, amap, delegateTy, in
                 None 
             else 
                 tryDestTopLambda g amap topValInfo (f, fty)        
+
         match lambdaContents with 
         | None -> 
         

@@ -314,6 +314,8 @@ type public TcGlobals =
 
       attrib_RequireQualifiedAccessAttribute        : BuiltinAttribInfo 
       attrib_EntryPointAttribute                    : BuiltinAttribInfo 
+      attrib_WitnessAttribute                       : BuiltinAttribInfo 
+      attrib_TraitAttribute                         : BuiltinAttribInfo 
       attrib_DefaultAugmentationAttribute           : BuiltinAttribInfo 
       attrib_CompilerMessageAttribute               : BuiltinAttribInfo 
       attrib_ExperimentalAttribute                  : BuiltinAttribInfo 
@@ -1217,6 +1219,8 @@ let mkTcGlobals (compilingFslib,sysCcu,ilg,fslibCcu,directoryToResolveRelativePa
     attrib_AutoSerializableAttribute              = mk_MFCore_attrib "AutoSerializableAttribute"
     attrib_RequireQualifiedAccessAttribute        = mk_MFCore_attrib "RequireQualifiedAccessAttribute"
     attrib_EntryPointAttribute                    = mk_MFCore_attrib "EntryPointAttribute"
+    attrib_WitnessAttribute                       = mk_MFCore_attrib "WitnessAttribute"
+    attrib_TraitAttribute                         = mk_MFCore_attrib "TraitAttribute"
     attrib_DefaultAugmentationAttribute           = mk_MFCore_attrib "DefaultAugmentationAttribute"
     attrib_CompilerMessageAttribute               = mk_MFCore_attrib "CompilerMessageAttribute"
     attrib_ExperimentalAttribute                  = mk_MFCore_attrib "ExperimentalAttribute"
