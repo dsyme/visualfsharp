@@ -744,8 +744,6 @@ if '%TEST_PORTABLE_COREUNIT_SUITE%' == '1' (
 REM  ---------------- coreclr-coreunit-suite  -----------------------
 
 if '%TEST_CORECLR_COREUNIT_SUITE%' == '1' (
-	set single_threaded=true
-	set permutations=FSC_CORECLR
 
 	set XMLFILE=%RESULTSDIR%\coreclr-coreunit-suite-results.xml
 	set OUTPUTFILE=%RESULTSDIR%\coreclr-coreunit-suite-output.log
@@ -753,16 +751,16 @@ if '%TEST_CORECLR_COREUNIT_SUITE%' == '1' (
 
 	set testbinpath=%~dp0tests\testbin\
 	set architecturepath=coreclr\win7-x64
-	set CORERUNPATH="!testbinpath!!flavor!\!architecturepath!"
+	set CORERUNPATH=!testbinpath!!flavor!\!architecturepath!
 
 	echo "!CORERUNPATH!\corerun.exe" "!testbinpath!!flavor!\coreclr\fsharp.core.unittests\FSharp.Core.Unittests.exe"
 		 "!CORERUNPATH!\corerun.exe" "!testbinpath!!flavor!\coreclr\fsharp.core.unittests\FSharp.Core.Unittests.exe"
 
-	call :UPLOAD_TEST_RESULTS "!XMLFILE!" "!OUTPUTFILE!"  "!ERRORFILE!"
+	rem call :UPLOAD_TEST_RESULTS "!XMLFILE!" "!OUTPUTFILE!"  "!ERRORFILE!"
 
-    if NOT '!saved_errorlevel!' == '0' (
-        type "!OUTPUTFILE!"
-        type "!ERRORFILE!"
+    if ERRORLEVEL 1 (
+        rem type "!OUTPUTFILE!"
+        rem type "!ERRORFILE!"
         echo Error: 'Running tests coreclr-coreunit-suite' failed 
         goto :failed_tests
     )
