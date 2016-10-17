@@ -415,11 +415,6 @@ if '%RestorePackages%' == 'true' (
         @if ERRORLEVEL 1 echo Error: Nuget restore failed  && goto :failure
     )
 
-    if '%BUILD_SETUP%' == '1' (
-        .\.nuget\NuGet.exe restore setup\packages.config -PackagesDirectory packages -ConfigFile .nuget\nuget.config
-        @if ERRORLEVEL 1 echo Error: Nuget restore failed  && goto :failure
-    )
-
 )
 
 if '%BUILD_PROTO_WITH_CORECLR_LKG%' == '1' (
