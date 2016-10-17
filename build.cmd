@@ -749,12 +749,11 @@ if '%TEST_CORECLR_COREUNIT_SUITE%' == '1' (
 	set OUTPUTFILE=%RESULTSDIR%\coreclr-coreunit-suite-output.log
 	set ERRORFILE=%RESULTSDIR%\coreclr-coreunit-suite-errors.log
 
-	set testbinpath=%~dp0tests\testbin\
-	set architecturepath=coreclr\win7-x64
-	set CORERUNPATH=!testbinpath!!flavor!\!architecturepath!
+	set architecture=win7-x64
+	set CORERUNPATH=%~dp0tests\testbin\!BUILD_CONFIG!\coreclr\!architecture!
 
-	echo "!CORERUNPATH!\corerun.exe" "!testbinpath!!flavor!\coreclr\fsharp.core.unittests\FSharp.Core.Unittests.exe"
-		 "!CORERUNPATH!\corerun.exe" "!testbinpath!!flavor!\coreclr\fsharp.core.unittests\FSharp.Core.Unittests.exe"
+	echo "!CORERUNPATH!\corerun.exe" "%~dp0tests\testbin\!BUILD_CONFIG!\coreclr\fsharp.core.unittests\FSharp.Core.Unittests.exe"
+		 "!CORERUNPATH!\corerun.exe" "%~dp0tests\testbin\!BUILD_CONFIG!\coreclr\fsharp.core.unittests\FSharp.Core.Unittests.exe"
 
 	rem call :UPLOAD_TEST_RESULTS "!XMLFILE!" "!OUTPUTFILE!"  "!ERRORFILE!"
 
