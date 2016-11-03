@@ -1,6 +1,25 @@
 {
+    "buildOptions": {
+        "debugType": "portable",
+        "compilerName": "fsc",
+        "compile": {
+            "includeFiles": [
+               "InternalsVisibleTo.fs",
+               "../../assemblyinfo/assemblyinfo.FSharp.Build.dll.fs",
+               "obj/FSBuild.fs"
+     
+         ]
+       }
+    },
+    "embed": {
+      "mappings": {
+        "FSBuild": "obj/FSBuild.resx"
+      }
+    },
     "dependencies": {
-        "Microsoft.Build": "0.1.0-preview-00028-160627",
+      "NETStandard.Library": "1.6.0",
+    "Microsoft.FSharp.Core.netcore": "1.0.0-alpha-*",
+      "Microsoft.Build": "0.1.0-preview-00028-160627",
         "Microsoft.Build.Framework": "0.1.0-preview-00028-160627",
         "Microsoft.Build.Tasks.Core": "0.1.0-preview-00028-160627",
         "Microsoft.Build.Utilities.Core": "0.1.0-preview-00028-160627",
@@ -14,6 +33,13 @@
         "System.Reflection.Primitives": "4.0.1",
         "System.Resources.ResourceManager": "4.0.1"
     },
+  "tools": {
+    "dotnet-fssrgen": "3.2.*",
+    "dotnet-compile-fsc": {
+      "version": "1.0.0-preview2-*",
+      "imports": "dnxcore50"
+    }
+  },
     "frameworks": {
         "netstandard1.6": {
             "imports": "portable-net45+win8"
