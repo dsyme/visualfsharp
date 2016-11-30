@@ -5,6 +5,7 @@ namespace Microsoft.VisualStudio.FSharp.Editor
 open System
 open System.Collections.Concurrent
 open System.Collections.Generic
+open System.ComponentModel.Composition
 open System.Runtime.InteropServices
 open System.Linq
 open System.IO
@@ -13,6 +14,7 @@ open Microsoft.FSharp.Compiler.CompileOps
 open Microsoft.FSharp.Compiler.SourceCodeServices
 
 open Microsoft.CodeAnalysis
+open Microsoft.CodeAnalysis.Diagnostics
 open Microsoft.CodeAnalysis.Editor.Options
 open Microsoft.VisualStudio
 open Microsoft.VisualStudio.Editor
@@ -27,6 +29,7 @@ open Microsoft.VisualStudio.LanguageServices.ProjectSystem
 open Microsoft.VisualStudio.Shell
 open Microsoft.VisualStudio.Shell.Interop
 open Microsoft.VisualStudio.FSharp.LanguageService
+open Microsoft.VisualStudio.ComponentModelHost
 
 // Workaround to access non-public settings persistence type.
 // GetService( ) with this will work as long as the GUID matches the real type.
@@ -49,6 +52,10 @@ type internal SVsSettingsPersistenceManager = class end
 type internal FSharpLanguageService(package : FSharpPackage) =
     inherit AbstractLanguageService<FSharpPackage, FSharpLanguageService>(package)
 
+    // The latest component model.  This is used to retrieve IDiagnosticAnalyzerService.
+    // FSROSLYNTODO: Work out how to make this and the two tables below non-static.
+    static let mutable componentModelOpt : IComponentModel option = None
+
     // A table of information about projects, excluding single-file projects.  
     static let projectTable = ConcurrentDictionary<ProjectId, FSharpProjectOptions>()
 
@@ -56,7 +63,30 @@ type internal FSharpLanguageService(package : FSharpPackage) =
     // the original options for editing
     static let singleFileProjectTable = ConcurrentDictionary<ProjectId, DateTime * FSharpProjectOptions>()
 
-    static let checker =  lazy FSharpChecker.Create()
+    static let checker =  
+        lazy 
+
+            let checker = FSharpChecker.Create()
+
+            // Add a hook so that when the background builder refreshes the background semantic build for a file, we refresh
+            // the editor.
+            checker.BeforeBackgroundFileCheck.Add(fun (fileName, extraProjectInfo) ->  
+               async {
+                try 
+                    match extraProjectInfo, componentModelOpt with 
+                    | Some (:? Workspace as workspace), Some componentModel  -> 
+                        let diagnosticsAnalyzer = componentModel.GetService<IDiagnosticAnalyzerService>()
+                        let solution = workspace.CurrentSolution
+                        let documentIds = solution.GetDocumentIdsWithFilePath(fileName)
+                        if not documentIds.IsEmpty then 
+                            diagnosticsAnalyzer.Reanalyze(workspace,documentIds=documentIds)
+                    | _ -> ()
+                with ex -> 
+                    Assert.Exception(ex)
+                } |> Async.StartImmediate
+            )
+
+            checker
 
 
     /// Update the info for a proejct in the project table
@@ -211,6 +241,7 @@ type internal FSharpLanguageService(package : FSharpPackage) =
     override this.SetupNewTextView(textView) =
         base.SetupNewTextView(textView)
         let workspace = this.Package.ComponentModel.GetService<VisualStudioWorkspaceImpl>()
+        componentModelOpt <- Some this.Package.ComponentModel
 
         // FSROSLYNTODO: Hide navigation bars for now. Enable after adding tests
         workspace.Options <- workspace.Options.WithChangedOption(NavigationBarOptions.ShowNavigationBar, FSharpCommonConstants.FSharpLanguageName, false)

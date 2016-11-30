@@ -926,8 +926,10 @@ REM ------ exit -------------------------------------
 
 :failure
 endlocal
+echo Exiting with failure
 exit /b 1
 
 :success
 endlocal
+echo Finished!
 exit /b 0
