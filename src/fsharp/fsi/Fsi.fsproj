@@ -24,6 +24,20 @@
     <Win32Resource>fsi.res</Win32Resource>
     <TargetFrameworkVersion Condition="'$(TargetFramework)' != 'coreclr'">v4.6</TargetFrameworkVersion>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <StartArguments>--load:"C:\Appdev\type_passing_tp\script.fsx"</StartArguments>
+  </PropertyGroup>
+  <Import Project="$(FSharpSourcesRoot)\FSharpSource.targets" />
+  <Target Name="GatherBinariesToBeSigned" AfterTargets="Localize" Condition="'$(UseGatherBinaries)' == 'true'">
+    <ItemGroup>
+      <BinariesToBeSigned Include="$(OutDir)$(AssemblyName).exe" />
+      <BinariesToBeSigned Include="$(OutDir)localize\**\$(AssemblyName).resources.dll" />
+      <FilesToSign Include="@(BinariesToBeSigned)">
+        <Authenticode>Microsoft</Authenticode>
+        <StrongName>StrongName</StrongName>
+      </FilesToSign>
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <FilesToLocalize Include="$(OutDir)$(AssemblyName).exe">
       <TranslationFile>$(FSharpSourcesRoot)\..\loc\lcl\{Lang}\$(AssemblyName).exe.lcl</TranslationFile>
@@ -53,11 +67,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>fsi.exe.config</Link>
     </None>
+    <None Include="project.json" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'coreclr'">
-      <None Include="project.json" />
-  </ItemGroup>
-  <ItemGroup  Condition="'$(TargetFramework)' != 'coreclr'">
+  <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Drawing" />
@@ -65,33 +77,18 @@
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
     <Reference Include="WindowsBase" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\FSharp.Compiler\FSharp.Compiler.fsproj">
       <Project>{2E4D67B4-522D-4CF7-97E4-BA940F0B18F3}</Project>
       <Name>FSharp.Compiler</Name>
     </ProjectReference>
-    <ProjectReference Include="$(FSharpSourcesRoot)\fsharp\FSharp.Core\FSharp.Core.fsproj" >
+    <ProjectReference Include="$(FSharpSourcesRoot)\fsharp\FSharp.Core\FSharp.Core.fsproj">
       <Project>{DED3BBD7-53F4-428A-8C9F-27968E768605}</Project>
       <Name>FSharp.Core</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' != 'coreclr'">
     <ProjectReference Include="..\FSharp.Compiler.Server.Shared\FSharp.Compiler.Server.Shared.fsproj">
       <Name>FSharp.Compiler.Server.Shared</Name>
       <Project>{d5870cf0-ed51-4cbc-b3d7-6f56da84ac06}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
-  <Import Project="$(FSharpSourcesRoot)\FSharpSource.targets" />
-  <Target Name="GatherBinariesToBeSigned" AfterTargets="Localize" Condition="'$(UseGatherBinaries)' == 'true'">
-    <ItemGroup>
-      <BinariesToBeSigned Include="$(OutDir)$(AssemblyName).exe" />
-      <BinariesToBeSigned Include="$(OutDir)localize\**\$(AssemblyName).resources.dll" />
-      <FilesToSign Include="@(BinariesToBeSigned)">
-         <Authenticode>Microsoft</Authenticode>
-         <StrongName>StrongName</StrongName>
-      </FilesToSign>
-    </ItemGroup>
-  </Target>
 </Project>

@@ -439,6 +439,9 @@
     <Compile Include="..\PostInferenceChecks.fs">
       <Link>Logic\PostInferenceChecks.fs</Link>
     </Compile>
+    <Compile Include="..\AssemblyReaderReflection.fs">
+      <Link>Logic\AssemblyReaderReflection.fs</Link>
+    </Compile>
     <Compile Include="..\TypeChecker.fsi">
       <Link>Logic\TypeChecker.fsi</Link>
     </Compile>

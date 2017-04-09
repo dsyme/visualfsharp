@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (c) Microsoft Corporation.  All Rights Reserved.  Licensed under the Apache License, Version 2.0.  See License.txt in the project root for license information. -->
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
@@ -56,6 +56,43 @@
       </FilesToSign>
     </ItemGroup>
   </Target>
+  <Choose>
+    <When Condition="$(MonoPackaging) != 'true'">
+      <ItemGroup Condition="'$(TargetFramework)' != 'coreclr'">
+        <Reference Include="Microsoft.Build.Framework, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.Framework.dll</HintPath>
+        </Reference>
+        <Reference Include="Microsoft.Build, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.dll</HintPath>
+        </Reference>
+        <Reference Include="Microsoft.Build.Utilities.Core, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.Utilities.Core.dll</HintPath>
+        </Reference>
+        <Reference Include="Microsoft.Build.Tasks.Core, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.Tasks.Core.dll</HintPath>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <Reference Include="Microsoft.Build.Framework, Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <Private>True</Private>
+        </Reference>
+        <Reference Include="Microsoft.Build.Engine, Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <Private>True</Private>
+        </Reference>
+        <Reference Include="Microsoft.Build, Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <Private>True</Private>
+        </Reference>
+        <Reference Include="Microsoft.Build.Utilities.$(MonoPackagingMSBuildVersionSuffix), Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <Private>True</Private>
+        </Reference>
+        <Reference Include="Microsoft.Build.Tasks.$(MonoPackagingMSBuildVersionSuffix), Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+          <Private>True</Private>
+        </Reference>
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
   <ItemGroup>
     <FilesToLocalize Include="$(OutDir)$(AssemblyName).dll">
       <TranslationFile>$(FSharpSourcesRoot)\..\loc\lcl\{Lang}\$(AssemblyName).dll.lcl</TranslationFile>
@@ -457,6 +494,9 @@
     <Compile Include="..\PostInferenceChecks.fs">
       <Link>Logic\PostInferenceChecks.fs</Link>
     </Compile>
+    <Compile Include="..\AssemblyReaderReflection.fs">
+      <Link>Logic\AssemblyReaderReflection.fs</Link>
+    </Compile>
     <Compile Include="..\TypeChecker.fsi">
       <Link>Logic\TypeChecker.fsi</Link>
     </Compile>
@@ -520,12 +560,9 @@
     <Compile Include="..\LegacyHostedCompilerForTesting.fs">
       <Link>LegacyHostedCompilerForTesting.fs</Link>
     </Compile>
-    
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'coreclr'">
     <None Include="project.json" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' != 'coreclr'">
+  <ItemGroup>
     <Reference Include="mscorlib" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -547,47 +584,6 @@
       <HintPath>..\..\..\packages\System.ValueTuple.4.3.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
       <Private>true</Private>
     </Reference>
-  </ItemGroup>
-
-  <Choose>
-    <When Condition="$(MonoPackaging) != 'true'">
-      <ItemGroup Condition="'$(TargetFramework)' != 'coreclr'">
-        <Reference Include="Microsoft.Build.Framework, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.Framework.dll</HintPath>
-        </Reference>
-        <Reference Include="Microsoft.Build, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.dll</HintPath>
-        </Reference>
-        <Reference Include="Microsoft.Build.Utilities.Core, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.Utilities.Core.dll</HintPath>
-        </Reference>
-        <Reference Include="Microsoft.Build.Tasks.Core, Version=$(VisualStudioVersion).0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <HintPath>$(FSharpSourcesRoot)\..\packages\Microsoft.VisualFSharp.Msbuild.15.0.1.0.1\lib\net45\Microsoft.Build.Tasks.Core.dll</HintPath>
-        </Reference>    
-      </ItemGroup>      
-    </When>
-    <Otherwise>
-      <ItemGroup>
-        <Reference Include="Microsoft.Build.Framework, Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <Private>True</Private>
-        </Reference>
-        <Reference Include="Microsoft.Build.Engine, Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <Private>True</Private>
-        </Reference>
-        <Reference Include="Microsoft.Build, Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <Private>True</Private>
-        </Reference>
-        <Reference Include="Microsoft.Build.Utilities.$(MonoPackagingMSBuildVersionSuffix), Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <Private>True</Private>
-        </Reference>
-        <Reference Include="Microsoft.Build.Tasks.$(MonoPackagingMSBuildVersionSuffix), Version=$(MonoPackagingMSBuildVersionFull), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-          <Private>True</Private>
-        </Reference>        
-      </ItemGroup>
-    </Otherwise>
-  </Choose>
-
-  <ItemGroup>
     <ProjectReference Include="$(FSharpSourcesRoot)\fsharp\FSharp.Core\FSharp.Core.fsproj">
       <Project>{DED3BBD7-53F4-428A-8C9F-27968E768605}</Project>
       <Name>FSharp.Core</Name>
