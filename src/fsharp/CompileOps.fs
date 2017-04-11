@@ -3872,7 +3872,7 @@ type TcImports(tcConfigP:TcConfigProvider, initialResolutions:TcAssemblyResoluti
             match thisCcuOpt with 
             | Some ccu -> ccu 
             | None -> failwith (sprintf "TODO: didn't get back to CCU being compiled for local tcref %s" tcref.DisplayName)
-        let assm = TastReflect.ReflectAssembly(g, ccu, "", m)
+        let assm = TastReflect.ReflectAssembly(tcImports.GetTcGlobals(), ccu, "", m)
         let rtd = assm.TxTypeDef None tcref
         rtd
 
