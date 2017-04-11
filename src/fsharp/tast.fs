@@ -2715,7 +2715,8 @@ and NonLocalEntityRef    =
                     [ for resolver in resolvers  do
                         let moduleOrNamespace = if j = 0 then null else path.[0..j-1]
                         let typename = path.[j]
-                        let resolution = ExtensionTyping.TryLinkProvidedType(resolver,moduleOrNamespace,typename,m)
+                        let importQualifiedTypeNameAsTypeValue (qname: string) = ccu.ImportQualifiedTypeNameAsTypeValue(qname, m)
+                        let resolution = ExtensionTyping.TryLinkProvidedType(resolver,importQualifiedTypeNameAsTypeValue,moduleOrNamespace,typename,m)
                         match resolution with
                         | None | Some (Tainted.Null) -> ()
                         | Some st -> yield (resolver,st) ]
@@ -3594,10 +3595,15 @@ and
       /// Triggered when the contents of the CCU are invalidated
       InvalidateEvent : IEvent<string> 
 
-      /// A helper function used to link method signatures using type equality. This is effectively a forward call to the type equality 
-      /// logic in tastops.fs
+      /// A helper function used to link provided types
       ImportProvidedType : Tainted<ProvidedType> -> TType 
       
+      /// A helper function used to link provided types
+      ImportQualifiedTypeNameAsTypeValue : string * range -> System.Type
+
+      /// A helper function used to amortize the production of types as values
+      LinkTyconRefAsTypeValue : CcuThunk option * TyconRef * range -> System.Type
+
 #endif
       /// Indicates that this DLL uses pre-F#-4.0 quotation literals somewhere. This is used to implement a restriction on static linking
       mutable UsesFSharp20PlusQuotations : bool
@@ -3685,6 +3691,10 @@ and CcuThunk =
     /// Used to make 'forward' calls into the loader during linking
     member ccu.ImportProvidedType ty : TType = ccu.Deref.ImportProvidedType ty
 
+      /// A helper function used to link provided types
+    member ccu.ImportQualifiedTypeNameAsTypeValue (qname, m) : System.Type = ccu.Deref.ImportQualifiedTypeNameAsTypeValue (qname, m)
+    member ccu.LinkTyconRefAsTypeValue (thisCcuOpt, tcref, m) : System.Type = ccu.Deref.LinkTyconRefAsTypeValue (thisCcuOpt, tcref, m)
+      
 #endif
 
     /// The fully qualified assembly reference string to refer to this assembly. This is persisted in quotations 
