@@ -4793,8 +4793,7 @@ and TcStaticConstantParameter cenv (env:TcEnv) tpenv kind (v:SynType) idOpt cont
                 | Exception err -> raise(err)
                 | Result tcref -> tcref 
 
-            let assm = AssemblyReaderReflection.ContextAssembly(cenv.g, cenv.topCcu, "")
-            let st = AssemblyReaderReflection.ContextTypeDefinition(cenv.g, assm, None, tcref) 
+            let st = cenv.topCcu.LinkTyconRefAsTypeValue (Some cenv.topCcu, tcref, m)
             //assm.GetType(tcref.CompiledRepresentationForNamedType.QualifiedName)
             //TODO:: 
                 //Assemebly Reflection Starterpack. 

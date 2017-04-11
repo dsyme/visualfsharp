@@ -3852,6 +3852,30 @@ type TcImports(tcConfigP:TcConfigProvider, initialResolutions:TcAssemblyResoluti
 
 
 #if EXTENSIONTYPING
+    member tcImports.ImportQualifiedTypeNameAsTypeValue(qname:string, m) = 
+        if not (qname.Contains(",")) then failwith (sprintf "expected a qualified type name: %+A" qname)
+        let commaPos = qname.IndexOf ','
+        let typeName = qname.[0..commaPos-1] 
+        let assName = if commaPos+2 < qname.Length then qname.[commaPos+2..]  else ""
+        let ilAssRef = ILAssemblyRef.FromAssemblyName (System.Reflection.AssemblyName assName)
+        // TODO: nested type definitions
+        if typeName.Contains("+") then failwith (sprintf "nested type def: %+A" typeName)
+        let ilTypeRef = ILTypeRef.Create(ILScopeRef.Assembly ilAssRef, [], typeName)
+        let tcref = Import.ImportILTypeRef (tcImports.GetImportMap()) m ilTypeRef 
+        tcImports.LinkTyconRefAsTypeValue(None, tcref, m)
+
+    member tcImports.LinkTyconRefAsTypeValue(thisCcuOpt, tcref: TyconRef, m) = 
+        let ccu = 
+            match ccuOfTyconRef tcref with 
+            | Some ccu -> ccu 
+            | None -> 
+            match thisCcuOpt with 
+            | Some ccu -> ccu 
+            | None -> failwith (sprintf "TODO: didn't get back to CCU being compiled for local tcref %s" tcref.DisplayName)
+        let assm = TastReflect.ReflectAssembly(tcImports.GetTcGlobals(), ccu, "", m)
+        let rtd = assm.TxTypeDef None tcref
+        rtd
+
     member tcImports.GetProvidedAssemblyInfo(ctok, m, assembly: Tainted<ProvidedAssembly>) = 
         let anameOpt = assembly.PUntaint((fun assembly -> match assembly with null -> None | a -> Some (a.GetName())), m)
         match anameOpt with 
@@ -3901,6 +3925,8 @@ type TcImports(tcConfigP:TcConfigProvider, initialResolutions:TcAssemblyResoluti
                 FileName = Some fileName
                 MemberSignatureEquality = (fun ty1 ty2 -> Tastops.typeEquivAux EraseAll g ty1 ty2)
                 ImportProvidedType = (fun ty -> Import.ImportProvidedType (tcImports.GetImportMap()) m ty)
+                ImportQualifiedTypeNameAsTypeValue = (fun (m,qname) ->  tcImports.ImportQualifiedTypeNameAsTypeValue (m, qname))
+                LinkTyconRefAsTypeValue = (fun (thisCcuOpt, tcref, m) ->  tcImports.LinkTyconRefAsTypeValue (thisCcuOpt, tcref, m))
                 TypeForwarders = Map.empty }
                     
             let ccu = CcuThunk.Create(ilShortAssemName,ccuData)
@@ -4285,6 +4311,8 @@ type TcImports(tcConfigP:TcConfigProvider, initialResolutions:TcAssemblyResoluti
                       InvalidateEvent=invalidateCcu.Publish
                       IsProviderGenerated = false
                       ImportProvidedType = (fun ty -> Import.ImportProvidedType (tcImports.GetImportMap()) m ty)
+                      ImportQualifiedTypeNameAsTypeValue = (fun (m,qname) ->  tcImports.ImportQualifiedTypeNameAsTypeValue (m, qname))
+                      LinkTyconRefAsTypeValue = (fun (thisCcuOpt, tcref, m) ->  tcImports.LinkTyconRefAsTypeValue (thisCcuOpt, tcref, m))
 #endif
                       UsesFSharp20PlusQuotations = minfo.usesQuotations
                       MemberSignatureEquality= (fun ty1 ty2 -> Tastops.typeEquivAux EraseAll (tcImports.GetTcGlobals()) ty1 ty2)
@@ -5167,6 +5195,8 @@ let GetInitialTcState(m,ccuName,tcConfig:TcConfig,tcGlobals,tcImports:TcImports,
           InvalidateEvent=(new Event<_>()).Publish
           IsProviderGenerated = false
           ImportProvidedType = (fun ty -> Import.ImportProvidedType (tcImports.GetImportMap()) m ty)
+          ImportQualifiedTypeNameAsTypeValue = (fun (m,qname) ->  tcImports.ImportQualifiedTypeNameAsTypeValue (m, qname))
+          LinkTyconRefAsTypeValue = (fun (thisCcuOpt, tcref, m) ->  tcImports.LinkTyconRefAsTypeValue (thisCcuOpt, tcref, m))
 #endif
           FileName=None 
           Stamp = newStamp()

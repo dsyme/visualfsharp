@@ -570,6 +570,8 @@ let ImportILAssembly(amap:(unit -> ImportMap),m,auxModuleLoader,sref,sourceDir,f
             InvalidateEvent=invalidateCcu
             IsProviderGenerated = false
             ImportProvidedType = (fun ty -> ImportProvidedType (amap()) m ty)
+            ImportQualifiedTypeNameAsTypeValue = (fun _ -> failwith "ImportQualifiedTypeNameAsTypeValue: from IL assembly!?")
+            LinkTyconRefAsTypeValue = (fun _ -> failwith "LinkTyconRefAsTypeValue: from IL assembly!?")
 #endif
             QualifiedName= Some sref.QualifiedName
             Contents = NewCcuContents sref m nm mty 

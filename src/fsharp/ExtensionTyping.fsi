@@ -337,7 +337,7 @@ module internal ExtensionTyping =
     val TryResolveProvidedType : Tainted<ITypeProvider> * range * string[] * typeName: string -> Tainted<ProvidedType> option
 
     /// Try to resolve a type in the given extension type resolver
-    val TryLinkProvidedType : Tainted<ITypeProvider> * string[] * typeLogicalName: string * range: range -> Tainted<ProvidedType> option
+    val TryLinkProvidedType : resolver:Tainted<ITypeProvider> * importQualifiedTypeNameAsTypeValue: (string -> Type) * string[] * typeLogicalName: string * range: range -> Tainted<ProvidedType> option
 
     /// Get the parts of a .NET namespace. Special rules: null means global, empty is not allowed.
     val GetProvidedNamespaceAsPath : range * Tainted<ITypeProvider> * string -> string list

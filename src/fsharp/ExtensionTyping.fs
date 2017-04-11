@@ -1115,7 +1115,7 @@ module internal ExtensionTyping =
 
     /// Given a mangled name reference to a non-nested provided type, resolve it.
     /// If necessary, demangle its static arguments before applying them.
-    let TryLinkProvidedType(resolver:Tainted<ITypeProvider>, moduleOrNamespace:string[], typeLogicalName:string, m:range) =
+    let TryLinkProvidedType(resolver:Tainted<ITypeProvider>, importQualifiedTypeNameAsTypeValue: string -> Type, moduleOrNamespace:string[], typeLogicalName:string, m:range) =
         
         // Demangle the static parameters
         let typeName, argNamesAndValues = 
@@ -1174,10 +1174,8 @@ module internal ExtensionTyping =
                           | "System.Boolean" -> box (arg = "True")
                           | "System.String" -> box (string arg)
                           | "System.Type" -> 
-                            let ty = Type.GetType arg
-                            if ty = null
-                            then failwithf "Failed to resolve type %A" arg
-                            else (box ty)
+                            let (ty : System.Type) = importQualifiedTypeNameAsTypeValue arg
+                            box ty
                           | s -> error(Error(FSComp.SR.etUnknownStaticArgumentKind(s, typeLogicalName), range0)))
 
             match TryApplyProvidedType(typeBeforeArguments, None, staticArgs, range0) with 
