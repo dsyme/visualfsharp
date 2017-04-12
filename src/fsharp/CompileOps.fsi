@@ -610,7 +610,7 @@ type TcImports =
     member GetCcusExcludingBase : unit -> CcuThunk list 
     member FindDllInfo : CompilationThreadToken * range * string -> ImportedBinary
     member TryFindDllInfo : CompilationThreadToken * range * string * lookupOnly: bool -> option<ImportedBinary>
-    member FindCcuFromAssemblyRef : CompilationThreadToken * range * ILAssemblyRef -> CcuResolutionResult
+    member FindCcuFromScopeRef : CompilationThreadToken * range * ILScopeRef -> CcuResolutionResult
 #if EXTENSIONTYPING
     member ProviderGeneratedTypeRoots : ProviderGeneratedType list
 #endif

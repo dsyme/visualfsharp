@@ -3601,8 +3601,12 @@ and
       /// A helper function used to link provided types
       ImportQualifiedTypeNameAsTypeValue : string * range -> System.Type
 
-      /// A helper function used to amortize the production of types as values
-      LinkTyconRefAsTypeValue : CcuThunk option * TyconRef * range -> System.Type
+      /// The data strcture to amortize the production of types as values
+      mutable ReflectAssembly : Lazy<System.Reflection.Assembly>
+
+      /// A hack used to get back to the assembly being compiled.  This is called when we 
+      // a type in the assembly being compiled has been used as a type argument to a type provider.
+      mutable GetCcuBeingCompiledHack : unit -> CcuThunk option
 
 #endif
       /// Indicates that this DLL uses pre-F#-4.0 quotation literals somewhere. This is used to implement a restriction on static linking
@@ -3693,7 +3697,8 @@ and CcuThunk =
 
       /// A helper function used to link provided types
     member ccu.ImportQualifiedTypeNameAsTypeValue (qname, m) : System.Type = ccu.Deref.ImportQualifiedTypeNameAsTypeValue (qname, m)
-    member ccu.LinkTyconRefAsTypeValue (thisCcuOpt, tcref, m) : System.Type = ccu.Deref.LinkTyconRefAsTypeValue (thisCcuOpt, tcref, m)
+    member ccu.ReflectAssembly = ccu.Deref.ReflectAssembly.Value
+    member ccu.GetCcuBeingCompiledHack() = ccu.Deref.GetCcuBeingCompiledHack()
       
 #endif
 

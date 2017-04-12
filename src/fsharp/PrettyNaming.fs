@@ -678,8 +678,13 @@ module internal Microsoft.FSharp.Compiler.PrettyNaming
             |> Array.choose (fun (staticArg, (defaultArgName, defaultArgValue)) -> 
                 let actualArgValue = 
                     match staticArg with 
-                    | :? System.Type as st -> st.AssemblyQualifiedName
-                    | _ -> string staticArg 
+                    | :? System.Type as st -> 
+                        let qname = st.AssemblyQualifiedName 
+                        printfn "st.AssemblyQualifiedName = '%s'" qname
+                        qname
+                    | _ -> 
+                        //  Convert all other argument types to basic strings
+                        string staticArg 
                 match defaultArgValue with 
                 | Some v when v = actualArgValue -> None
                 | _ -> Some (defaultArgName, actualArgValue))

@@ -10,6 +10,7 @@ open System.Reflection
 open Microsoft.FSharp.Compiler.Range
 open Microsoft.FSharp.Compiler.Tast
 open Microsoft.FSharp.Compiler.Tastops
+open Microsoft.FSharp.Compiler.AbstractIL.IL
 open Microsoft.FSharp.Compiler.TcGlobals
 open System.Runtime.Remoting.Lifetime
 
@@ -403,7 +404,7 @@ and ReflectMethodSymbol(gmd: MethodInfo, gargs: Type[]) =
 /// Clones namespaces, type providers, types and members provided by tp, renaming namespace nsp1 into namespace nsp2.
 
 /// Makes a type definition read from a binary available as a System.Type. Not all methods are implemented.
-and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type option, tcref: TyconRef, m) as this = 
+and ReflectTypeDefinition (asm: ReflectAssembly, declTyOpt: Type option, tcref: TyconRef) as this = 
     inherit Type()
 
     // Note: For F# type providers we never need to view the custom attributes
@@ -411,7 +412,7 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
         match v with
         | Expr.Const (cnst, _, ttype) -> 
         //TODO: This can probably be removed completly.
-            CustomAttributeTypedArgument(TxTType ttype, TxConst cnst)
+            CustomAttributeTypedArgument(asm.TxTType ttype, TxConst cnst)
         | _ -> failwithf "Missing case for CustomAttributesArg %+A" v
 
     and TxCustomAttributesDatum (Attrib(_, _, exprs,_,_,_,_)) = 
@@ -492,7 +493,7 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
             override __.Attributes        = notRequired "TxMethodDef Attributes" //TODO: TxMethodDef method attributes
             override __.GetParameters()   = notRequired "TxMethodDef parameters" //TODO: TxMethodDef parameters
             override __.CallingConvention = CallingConventions.HasThis ||| CallingConventions.Standard // Provided types report this by default
-            override __.ReturnType        = vref.Type |> TxTType
+            override __.ReturnType        = vref.Type |> asm.TxTType
             override __.GetCustomAttributesData() = vref.Attribs |> TxCustomAttributesData
             override __.GetGenericArguments() = gps2
             override __.IsGenericMethod = (gps2.Length <> 0)
@@ -537,7 +538,7 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
             override __.MemberType = MemberTypes.Property
             override __.DeclaringType = declTy
 
-            override __.PropertyType = inp.Type |> TxTType
+            override __.PropertyType = inp.Type |> asm.TxTType
             override __.GetGetMethod(_nonPublic) = 
                 tycon.MembersOfFSharpTyconByName.[inp.PropertyName] 
                 |> List.tryFind (fun x -> x.IsPropertyGetterMethod) 
@@ -610,39 +611,6 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
 
     //        override __.ToString() = sprintf "ctxt event %s(...) in type %s" inp.Name declTy.FullName }
 
-    /// Makes a field definition read from a binary available as a FieldInfo. Not all methods are implemented.
-    and TxTType (typ:TType) = 
-        // TODO: may need something special for "System.Void"
-        let typ = stripTyEqnsWrtErasure Erasure.EraseAll g typ
-        match typ with 
-        | AppTy g (tcref, tinst) -> 
-            let tcrefR : System.Type = asm.LinkTyconRefAsTypeValue (None, tcref, m) 
-            match tinst with 
-            | [] -> tcrefR 
-            | args -> tcrefR.MakeGenericType(Array.map TxTType (Array.ofList args))  
-        | ty when isArrayTy g ty -> 
-            let ety = destArrayTy g ty 
-            let etyR = TxTType ety
-            match rankOfArrayTy g ty with
-            | 1 -> etyR.MakeArrayType()  
-            | n -> etyR.MakeArrayType(n)  
-        | ty when isNativePtrTy g ty -> 
-            let etyR = destNativePtrTy g ty  |> TxTType 
-            etyR.MakePointerType()  
-        | ty when isByrefTy g ty -> 
-            let etyR = destByrefTy g ty  |> TxTType 
-            etyR.MakeByRefType()  
-        | ty when isTyparTy g ty -> 
-            // TODO: finish generic parameters
-            //let tp = destTyparTy g ty  
-            failwith "NYI: generic typars"
-    //        let (gps1:Type[]),(gps2:Type[]) = gps
-    //        if n < gps1.Length then gps1.[n] 
-    //        elif n < gps1.Length + gps2.Length then gps2.[n - gps1.Length] 
-    //        else failwith (sprintf "generic parameter index our of range: %d" n)
-    
-        | _ -> failwithf "Unsupported TxTType %+A" typ
-      
     and TxConst (cnst:Const) = 
         match cnst with 
         | Const.Bool b -> box b
@@ -672,7 +640,7 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
             override __.MemberType = MemberTypes.Field 
             override __.DeclaringType = declTy
 
-            override __.FieldType = inp.FormalType |> TxTType
+            override __.FieldType = inp.FormalType |> asm.TxTType
             override __.GetRawConstantValue()  = match inp.LiteralValue with None -> null | Some v -> TxConst v
             override __.GetCustomAttributesData() = [| |] :> IList<_> // notRequired "CustomAttribute data" // inp.FieldAttribs |> TxCustomAttributesData
 
@@ -697,7 +665,7 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
     ///// Bind a reference to a constructor
     and TxConstructor (mref: ValRef) = 
         let argTypes = [||]//Array.map (TxILType ([| |], [| |])) mref.  
-        let declTy = TxTType mref.Type
+        let declTy = asm.TxTType mref.Type
         let cons = declTy.GetConstructor(BindingFlags.Public ||| BindingFlags.NonPublic, null, argTypes, null)
         if cons = null then failwith (sprintf "constructor reference '%+A' not resolved" mref)
         cons
@@ -784,11 +752,11 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
     override __.DeclaringType = declTyOpt |> optionToNull
     override __.MemberType = if isNested then MemberTypes.NestedType else MemberTypes.TypeInfo
 
-    override __.FullName = tcref.CompiledRepresentationForNamedType.QualifiedName
+    override __.FullName = tcref.CompiledRepresentationForNamedType.FullName
                     
     override __.Namespace = tcref.CompiledRepresentationForNamedType.Enclosing.[0]
     override __.BaseType = null//inp. |> Option.map (TxILType (gps, [| |])) |> optionToNull
-    override __.GetInterfaces() = tcref.ImmediateInterfaceTypesOfFSharpTycon |> List.map TxTType |> List.toArray
+    override __.GetInterfaces() = tcref.ImmediateInterfaceTypesOfFSharpTycon |> List.map asm.TxTType |> List.toArray
 
     override this.GetConstructors(_bindingFlags) = 
         tcref.MembersOfFSharpTyconSorted 
@@ -932,7 +900,7 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
     override this.IsAssignableFrom(otherTy) = base.IsAssignableFrom(otherTy) || this.Equals(otherTy)
     override this.IsSubclassOf(otherTy) = base.IsSubclassOf(otherTy) || tcref.IsFSharpDelegateTycon && otherTy = typeof<Delegate> // F# quotations implementation
 
-    override this.AssemblyQualifiedName                                                            = "[" + this.Assembly.FullName + "]" + this.FullName
+    override this.AssemblyQualifiedName                                                            = this.FullName + ", " + this.Assembly.FullName
 
     override this.ToString() = this.FullName
 
@@ -953,18 +921,19 @@ and ReflectTypeDefinition(g: TcGlobals, asm: ReflectAssembly, declTyOpt: Type op
     member x.MakeConstructorInfo (declTy,md) = TxConstructorDef declTy md
 
 
-and ReflectAssembly(g, ccu: CcuThunk, location:string, m) as asm =
+and ReflectAssembly(g, ccu: CcuThunk, location:string) as asm =
     inherit Assembly()
 
     // A table tracking how type definition objects are translated.
     let txTable = TxTable<Type>()
+    let txTypeDef (declTyOpt: Type option) (inp: TyconRef) =
+        txTable.Get inp.Stamp (fun () -> ReflectTypeDefinition(asm, declTyOpt, inp) :> System.Type)
 
-    member __.LinkTyconRefAsTypeValue(thisCcuOpt: CcuThunk option, inp: TyconRef, m) = ccu.LinkTyconRefAsTypeValue (thisCcuOpt, inp, m)
+    let name = lazy new AssemblyName(match ccu.ILScopeRef with ILScopeRef.Local -> ccu.AssemblyName | _ -> ccu.ILScopeRef.QualifiedNameWithNoShortPrimaryAssembly)
+    let fullName = lazy name.Value.ToString()
+    let types = lazy [| for td in ccu.RootModulesAndNamespaces -> txTypeDef None (mkLocalEntityRef td) |]
 
-    member __.TxTypeDef (declTyOpt: Type option) (inp: TyconRef) =
-        txTable.Get inp.Stamp (fun () -> ReflectTypeDefinition(g, asm, declTyOpt, inp, m) :> System.Type)
-
-    override x.GetTypes () = [| for td in ccu.RootModulesAndNamespaces -> x.TxTypeDef None (mkLocalEntityRef td) |]
+    override x.GetTypes () = types.Value
     override x.Location = location
 
     override x.GetType (nm:string) = 
@@ -981,9 +950,9 @@ and ReflectAssembly(g, ccu: CcuThunk, location:string, m) as asm =
         else
             x.TryBindType(None, nm) |> optionToNull
 
-    override x.GetName () = new AssemblyName(ccu.AssemblyName)
+    override x.GetName () = name.Value
 
-    override x.FullName = x.GetName().ToString()
+    override x.FullName = fullName.Value
 
     override x.ReflectionOnly = true
 
@@ -992,11 +961,56 @@ and ReflectAssembly(g, ccu: CcuThunk, location:string, m) as asm =
 
     member x.TryBindType(nsp:string option, nm:string) : Type option = 
         match ccu.RootModulesAndNamespaces |> List.tryFind (fun x -> x.CompiledName = nm) with 
-        | Some td -> asm.TxTypeDef None (mkLocalTyconRef td) |> Some
+        | Some td -> txTypeDef None (mkLocalTyconRef td) |> Some
         | None -> 
         match ccu.RootTypeAndExceptionDefinitions |> List.tryFind (fun x -> x.CompiledName = nm) with 
-        | Some td -> asm.TxTypeDef None (mkLocalTyconRef td) |> Some
+        | Some td -> txTypeDef None (mkLocalTyconRef td) |> Some
         | None -> 
         txTable.Values |> Seq.tryFind (fun t -> (match nsp with | Some ns -> t.Namespace = ns | None -> true) && t.Name = nm)
 
     override x.ToString() = "ctxt assembly " + x.FullName
+
+
+    member __.TxTypeDef declTyOpt inp = txTypeDef declTyOpt inp
+
+        /// Makes a field definition read from a binary available as a FieldInfo. Not all methods are implemented.
+    member asm.TxTType (typ:TType) = 
+        // TODO: may need something special for "System.Void"
+        let typ = stripTyEqnsWrtErasure Erasure.EraseAll g typ
+        match typ with 
+        | AppTy g (tcref, tinst) -> 
+            let ccuofTyconRef = 
+                match ccuOfTyconRef tcref with 
+                | Some ccuofTyconRef -> ccuofTyconRef
+                | None -> 
+                match ccu.GetCcuBeingCompiledHack() with 
+                | Some ccuofTyconRef -> ccuofTyconRef
+                | None -> failwith (sprintf "TODO: didn't get back to CCU being compiled for local tcref %s" tcref.DisplayName)
+            let reflAssem = ccuofTyconRef.ReflectAssembly :?> ReflectAssembly
+            let tcrefR = reflAssem.TxTypeDef None tcref
+            match tinst with 
+            | [] -> tcrefR 
+            | args -> tcrefR.MakeGenericType(Array.map asm.TxTType (Array.ofList args))  
+        | ty when isArrayTy g ty -> 
+            let ety = destArrayTy g ty 
+            let etyR = asm.TxTType ety
+            match rankOfArrayTy g ty with
+            | 1 -> etyR.MakeArrayType()  
+            | n -> etyR.MakeArrayType(n)  
+        | ty when isNativePtrTy g ty -> 
+            let etyR = destNativePtrTy g ty  |> asm.TxTType 
+            etyR.MakePointerType()  
+        | ty when isByrefTy g ty -> 
+            let etyR = destByrefTy g ty  |> asm.TxTType 
+            etyR.MakeByRefType()  
+        | ty when isTyparTy g ty -> 
+            // TODO: finish generic parameters
+            //let tp = destTyparTy g ty  
+            failwith "NYI: generic typars"
+    //        let (gps1:Type[]),(gps2:Type[]) = gps
+    //        if n < gps1.Length then gps1.[n] 
+    //        elif n < gps1.Length + gps2.Length then gps2.[n - gps1.Length] 
+    //        else failwith (sprintf "generic parameter index our of range: %d" n)
+    
+        | _ -> failwithf "Unsupported TxTType %+A" typ
+      

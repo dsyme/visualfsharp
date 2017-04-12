@@ -26,7 +26,7 @@ open Microsoft.FSharp.Compiler.ExtensionTyping
 type AssemblyLoader = 
 
     /// Resolve an Abstract IL assembly reference to a Ccu
-    abstract FindCcuFromAssemblyRef : CompilationThreadToken * range * ILAssemblyRef -> CcuResolutionResult
+    abstract FindCcuFromScopeRef : CompilationThreadToken * range * ILScopeRef -> CcuResolutionResult
 #if EXTENSIONTYPING
 
     /// Get a flag indicating if an assembly is a provided assembly, plus the
@@ -60,18 +60,13 @@ type ImportMap(g:TcGlobals,assemblyLoader:AssemblyLoader) =
     member this.ILTypeRefToTyconRefCache = typeRefToTyconRefCache
 
 let CanImportILScopeRef (env:ImportMap) m scoref = 
-    match scoref with 
-    | ILScopeRef.Local    -> true
-    | ILScopeRef.Module _ -> true
-    | ILScopeRef.Assembly assref -> 
+    // Explanation: This represents an unchecked invariant in the hosted compiler: that any operations
+    // which import types (and resolve assemblies from the tcImports tables) happen on the compilation thread.
+    let ctok = AssumeCompilationThreadWithoutEvidence() 
 
-        // Explanation: This represents an unchecked invariant in the hosted compiler: that any operations
-        // which import types (and resolve assemblies from the tcImports tables) happen on the compilation thread.
-        let ctok = AssumeCompilationThreadWithoutEvidence() 
-
-        match env.assemblyLoader.FindCcuFromAssemblyRef (ctok, m, assref) with
-        | UnresolvedCcu _ ->  false
-        | ResolvedCcu _ -> true
+    match env.assemblyLoader.FindCcuFromScopeRef (ctok, m, scoref) with
+    | UnresolvedCcu _ ->  false
+    | ResolvedCcu _ -> true
 
 
 /// Import a reference to a type definition, given the AbstractIL data for the type reference
@@ -81,11 +76,7 @@ let ImportTypeRefData (env:ImportMap) m (scoref,path,typeName) =
     // which import types (and resolve assemblies from the tcImports tables) happen on the compilation thread.
     let ctok = AssumeCompilationThreadWithoutEvidence()
 
-    let ccu =  
-        match scoref with 
-        | ILScopeRef.Local    -> error(InternalError("ImportILTypeRef: unexpected local scope",m))
-        | ILScopeRef.Module _ -> error(InternalError("ImportILTypeRef: reference found to a type in an auxiliary module",m))
-        | ILScopeRef.Assembly assref -> env.assemblyLoader.FindCcuFromAssemblyRef (ctok, m, assref)  // NOTE: only assemblyLoader callsite
+    let ccu =  env.assemblyLoader.FindCcuFromScopeRef (ctok, m, scoref) 
 
     // Do a dereference of a fake tcref for the type just to check it exists in the target assembly and to find
     // the corresponding Tycon.
@@ -570,8 +561,9 @@ let ImportILAssembly(amap:(unit -> ImportMap),m,auxModuleLoader,sref,sourceDir,f
             InvalidateEvent=invalidateCcu
             IsProviderGenerated = false
             ImportProvidedType = (fun ty -> ImportProvidedType (amap()) m ty)
-            ImportQualifiedTypeNameAsTypeValue = (fun _ -> failwith "ImportQualifiedTypeNameAsTypeValue: from IL assembly!?")
-            LinkTyconRefAsTypeValue = (fun _ -> failwith "LinkTyconRefAsTypeValue: from IL assembly!?")
+            ImportQualifiedTypeNameAsTypeValue = (fun _ -> failwith (sprintf "ImportQualifiedTypeNameAsTypeValue: from IL assembly!? %s" sref.QualifiedName))
+            ReflectAssembly = lazy failwith (sprintf "ReflectAssembly: from IL assembly!? %s" sref.QualifiedName)
+            GetCcuBeingCompiledHack = (fun () -> None)
 #endif
             QualifiedName= Some sref.QualifiedName
             Contents = NewCcuContents sref m nm mty 

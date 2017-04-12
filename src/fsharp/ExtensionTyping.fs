@@ -1174,7 +1174,12 @@ module internal ExtensionTyping =
                           | "System.Boolean" -> box (arg = "True")
                           | "System.String" -> box (string arg)
                           | "System.Type" -> 
+                            // importQualifiedTypeNameAsTypeValue converts a string into a TastReflect.ReflectTypeDefinition which is handed to the
+                            // type provider as a 
                             let (ty : System.Type) = importQualifiedTypeNameAsTypeValue arg
+                            // The AssemblyQualifiedName on the System.Type instance should be precisely the same as the text of the mangled argument
+                            printfn "ty.AssemblyQualifiedName = '%s', arg = '%s'" ty.AssemblyQualifiedName arg
+                            assert (ty.AssemblyQualifiedName = arg)
                             box ty
                           | s -> error(Error(FSComp.SR.etUnknownStaticArgumentKind(s, typeLogicalName), range0)))
 
