@@ -3880,33 +3880,39 @@ type TcImports(tcConfigP:TcConfigProvider, initialResolutions:TcAssemblyResoluti
         // Qualified name string --> TyconRef 
         assert (qname.Contains(",")) // we expected a qualified type name, even for references to the assembly being compiled
         let commaPos = qname.IndexOf ','
+        let typeName = qname.[0..commaPos-1] 
         let ilTypeRef = 
-            if commaPos >= 0 then 
-                let typeName = qname.[0..commaPos-1] 
-                let assName = if commaPos+2 < qname.Length then qname.[commaPos+2..]  else ""
-                let ilAssRef = ILAssemblyRef.FromAssemblyName (System.Reflection.AssemblyName assName)
-                let ilScoRef = ILScopeRef.Assembly ilAssRef
-                if typeName.Contains("+") then 
-                    let pieces = typeName.Split('+')
-                    ILTypeRef.Create(ilScoRef, Array.toList pieces.[0..pieces.Length-2], pieces.[pieces.Length-1])
-                else
-                    ILTypeRef.Create(ilScoRef, [], typeName)
-            else 
-                ILTypeRef.Create(ILScopeRef.Local, [], qname)
-                
-        let tcref = Import.ImportILTypeRef (tcImports.GetImportMap()) m ilTypeRef 
-        // TyconRef --> ReflectTypeDefinition value
-        let ccu = 
-            match ccuOfTyconRef tcref with 
-            | Some ccu -> ccu 
-            | None -> 
+            let assName = if commaPos+2 < qname.Length then qname.[commaPos+2..]  else ""
+            let ilAssRef = ILAssemblyRef.FromAssemblyName (System.Reflection.AssemblyName assName)
+            let ilScoRef = ILScopeRef.Assembly ilAssRef
+            if typeName.Contains("+") then 
+                let pieces = typeName.Split('+')
+                ILTypeRef.Create(ilScoRef, Array.toList pieces.[0..pieces.Length-2], pieces.[pieces.Length-1])
+            else
+                ILTypeRef.Create(ilScoRef, [], typeName)
+
+        // See if this type is fromm the assembly being compiled. If so, look up the table
+        let st = 
             match ccuBeingCompiledHack with 
-            | Some ccu -> ccu 
-            | None -> failwith (sprintf "TODO: didn't get back to CCU being compiled for local tcref %s" tcref.DisplayName)
-        let asm = ccu.ReflectAssembly :?> TastReflect.ReflectAssembly
-        let rtd = asm.TxTypeDef None tcref
-        printfn "resurrected type value rtd.AssemblyQualifiedName='%s'" rtd.AssemblyQualifiedName
-        rtd
+            | Some ccu when ccu.AssemblyName = ilTypeRef.Scope.AssemblyRef.Name ->
+                let asm = ccu.ReflectAssembly :?> TastReflect.ReflectAssembly
+                match asm.GetType(typeName) with 
+                | null -> failwith (sprintf "couldn't get type '%s' from assembly '%s'" typeName ccu.AssemblyName)
+                | st -> st
+            | _ -> 
+                let tcref = Import.ImportILTypeRef (tcImports.GetImportMap()) m ilTypeRef 
+                // TyconRef --> ReflectTypeDefinition value
+                let ccu = 
+                    match ccuOfTyconRef tcref with 
+                    | Some ccu -> ccu 
+                    | None -> 
+                    match ccuBeingCompiledHack with 
+                    | Some ccu -> ccu 
+                    | None -> failwith (sprintf "TODO: didn't get back to CCU being compiled for local tcref %s" tcref.DisplayName)
+                let asm = ccu.ReflectAssembly :?> TastReflect.ReflectAssembly
+                asm.TxTypeDef None tcref
+        printfn "resurrected type value st.AssemblyQualifiedName='%s'" st.AssemblyQualifiedName
+        st
 
     member tcImports.GetProvidedAssemblyInfo(ctok, m, assembly: Tainted<ProvidedAssembly>) = 
         let anameOpt = assembly.PUntaint((fun assembly -> match assembly with null -> None | a -> Some (a.GetName())), m)

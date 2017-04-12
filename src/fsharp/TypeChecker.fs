@@ -4751,7 +4751,7 @@ and TcStaticConstantParameter cenv (env:TcEnv) tpenv kind (v:SynType) idOpt cont
             | SynConst.String (s,_) when s <> null && typeEquiv cenv.g cenv.g.string_ty kind  -> record(cenv.g.string_ty); box (s:string)
             | SynConst.Bool b       when typeEquiv cenv.g cenv.g.bool_ty kind    -> record(cenv.g.bool_ty); box (b:bool)
             | _ -> fail()
-        v, tpenv
+        PrettyNaming.StaticArg v, tpenv
     | SynType.StaticConstantExpr(e, _ ) ->
 
         // If an error occurs, don't try to recover, since the constant expression will be nothing like what we need
@@ -4781,7 +4781,7 @@ and TcStaticConstantParameter cenv (env:TcEnv) tpenv kind (v:SynType) idOpt cont
                 | Const.Bool b     -> record(cenv.g.bool_ty); box (b:bool)
                 | _ ->  fail()
             | _ -> error(Error(FSComp.SR.tcInvalidConstantExpression(),v.Range))
-        v, tpenv'   
+        PrettyNaming.StaticArg v, tpenv'   
     | SynType.LongIdent(lidwd) ->
         let m = lidwd.Range
         if typeEquiv cenv.g cenv.g.system_Type_typ kind then
@@ -4797,7 +4797,7 @@ and TcStaticConstantParameter cenv (env:TcEnv) tpenv kind (v:SynType) idOpt cont
             let st = assm.TxTType (snd (generalizeTyconRef tcref))
                 
             record(cenv.g.system_Type_typ); 
-            box st, tpenv
+            PrettyNaming.StaticArg (box st), tpenv
         else 
             TcStaticConstantParameter cenv env tpenv kind (SynType.StaticConstantExpr(SynExpr.LongIdent(false,lidwd,None,m),m)) idOpt container
     | _ ->  
@@ -4847,7 +4847,7 @@ and CrackStaticConstantArgs cenv env tpenv (staticParameters: Tainted<ProvidedPa
                     if sp.PUntaint((fun sp -> sp.IsOptional), m) then
                          match sp.PUntaint((fun sp -> sp.RawDefaultValue), m) with
                          | null -> error (Error(FSComp.SR.etStaticParameterRequiresAValue (spName, containerName, containerName, spName) ,m))
-                         | v -> v
+                         | v -> PrettyNaming.StaticArg v
                     else
                       error (Error(FSComp.SR.etStaticParameterRequiresAValue (spName, containerName, containerName, spName),m))
                  | ps -> 
