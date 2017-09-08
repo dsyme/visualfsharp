@@ -1,10 +1,6 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
 
-#if COMPILER_PUBLIC_API
-module public Microsoft.FSharp.Compiler.AbstractIL.Internal.Library 
-#else
 module internal Microsoft.FSharp.Compiler.AbstractIL.Internal.Library 
-#endif
 #nowarn "1178" // The struct, record or union type 'internal_instr_extension' is not structurally comparable because the type
 
 
@@ -13,10 +9,6 @@ open System.Collections
 open System.Collections.Generic
 open System.Reflection
 open Internal.Utilities
-
-#if FX_RESHAPED_REFLECTION
-open Microsoft.FSharp.Core.ReflectionAdapters
-#endif
 
 // Logical shift right treating int32 as unsigned integer.
 // Code that uses this should probably be adjusted to use unsigned integer types.
@@ -284,11 +276,6 @@ module Option =
 module List = 
 
     //let item n xs = List.nth xs n
-#if FX_RESHAPED_REFLECTION
-    open PrimReflectionAdapters
-    open Microsoft.FSharp.Core.ReflectionAdapters
-#endif
-
     let sortWithOrder (c: IComparer<'T>) elements = List.sortWith (Order.toFunction c) elements
     
     let splitAfter n l = 
@@ -1246,11 +1233,6 @@ type LayeredMultiMap<'Key,'Value when 'Key : equality and 'Key : comparison>(con
 module Shim =
 
     open System.IO
-
-#if FX_RESHAPED_REFLECTION
-    open PrimReflectionAdapters
-    open Microsoft.FSharp.Core.ReflectionAdapters
-#endif
 
     type IFileSystem = 
         abstract ReadAllBytesShim: fileName:string -> byte[] 
