@@ -241,13 +241,15 @@ REM These divide "ci" into three chunks which can be done in parallel
 if /i "%ARG%" == "ci_part1" (
     set _autoselect=0
 
-    REM what we do - test Visual F# Tools
+    REM what we do - build and test Visual F# Tools, including setup and nuget
     set BUILD_PROTO=1
+    set BUILD_NUGET=1
     set BUILD_NET40=1
     set BUILD_NET40_FSHARP_CORE=1
     set BUILD_VS=1
-    set BUILD_SETUP=%FSC_BUILD_SETUP%
     set TEST_VS_IDEUNIT_SUITE=1
+    set BUILD_CORECLR=1
+    set BUILD_SETUP=%FSC_BUILD_SETUP%
     set CI=1
 )
 
@@ -289,7 +291,6 @@ if /i "%ARG%" == "ci_part4" (
     set BUILD_NET40_FSHARP_CORE=1
     set BUILD_NET40=1
     set BUILD_FCS=1
-    set BUILD_NUGET=1
     set TEST_FCS=1
     set CI=1
 )
