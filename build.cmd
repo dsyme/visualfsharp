@@ -890,7 +890,8 @@ if "%TEST_FCS%" == "1" (
     if errorlevel 1 (
         type fcs\FSharp.Compiler.Service.Tests\TestResults\*.trx
         echo -----------------------------------------------------------------
-        echo Error: Running FCS tests failed. See XML logging output above.
+        echo Error: Running FCS tests failed. See XML logging output above. Search for 'outcome="Failed"' or 'Failed '
+        echo .
         echo Error: Note that tests were run with both .NET Core and .NET Framework.
         echo Error: Try running tests locally and using 
         echo .

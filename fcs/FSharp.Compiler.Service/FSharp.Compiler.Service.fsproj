@@ -665,6 +665,6 @@
     </Reference>
   </ItemGroup>
   <Import Project="$(FSharpSourcesRoot)\scripts\fssrgen.targets" />
-  <Import Project="$(FSharpSourcesRoot)\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets" />
+  <Import Project="$(FSharpSourcesRoot)\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets" Condition="Exists('$(FSharpSourcesRoot)\..\packages\FsLexYacc.7.0.6\build\FsLexYacc.targets')" />
 	<Target Name="GenerateCode" AfterTargets="Restore" BeforeTargets="BeforeBuild"       DependsOnTargets="CallFsLex;CallFsYacc;ProcessFsSrGen"></Target>
 </Project>
