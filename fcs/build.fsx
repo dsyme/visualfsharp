@@ -105,17 +105,25 @@ Target "Build" (fun _ ->
 )
 
 Target "Test" (fun _ ->
+#if MONO
+    ()
+#else
     runDotnet __SOURCE_DIRECTORY__ (sprintf "restore %s -v n"  "../tests/projects/Sample_NETCoreSDK_FSharp_Library_netstandard2_0/Sample_NETCoreSDK_FSharp_Library_netstandard2_0.fsproj")
     runDotnet __SOURCE_DIRECTORY__ (sprintf "build  %s -v n"  "../tests/projects/Sample_NETCoreSDK_FSharp_Library_netstandard2_0/Sample_NETCoreSDK_FSharp_Library_netstandard2_0.fsproj")
     runDotnet __SOURCE_DIRECTORY__ (sprintf "test %s -v n -c Release /maxcpucount:1" "FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj")
+#endif
 )
 
 
 Target "NuGet" (fun _ ->
+#if MONO
+    ()
+#else
     runDotnet __SOURCE_DIRECTORY__ (sprintf "pack %s -v n -c Release /maxcpucount:1" "FSharp.Compiler.Service/FSharp.Compiler.Service.fsproj")
     runDotnet __SOURCE_DIRECTORY__ (sprintf "build %s -v n -c Release /maxcpucount:1" "FSharp.Compiler.Service.ProjectCrackerTool/FSharp.Compiler.Service.ProjectCrackerTool.fsproj")
     runDotnet __SOURCE_DIRECTORY__ (sprintf "pack %s -v n -c Release /maxcpucount:1" "FSharp.Compiler.Service.ProjectCracker/FSharp.Compiler.Service.ProjectCracker.fsproj")
     runDotnet __SOURCE_DIRECTORY__ (sprintf "pack %s -v n -c Release /maxcpucount:1" "FSharp.Compiler.Service.MSBuild.v12/FSharp.Compiler.Service.MSBuild.v12.fsproj")
+#endif
 )
 
 Target "GenerateDocsEn" (fun _ ->
