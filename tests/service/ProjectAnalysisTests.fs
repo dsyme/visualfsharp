@@ -124,7 +124,7 @@ let ``Test Project1 should have protected FullName and TryFullName return same r
     |> Seq.iter (shouldEqual true)
 
 [<Test>]
-[<Ignore("TODO: BaseType shouldn't throw exceptions")>]
+[<Ignore("SKIPPED: BaseType shouldn't throw exceptions")>]
 let ``Test project1 should not throw exceptions on entities from referenced assemblies`` () =
     let wholeProjectResults = checker.ParseAndCheckProject(Project1.options) |> Async.RunSynchronously
     let rec getAllBaseTypes (entity: FSharpEntity) =
@@ -3628,7 +3628,7 @@ let _ = XmlProvider<"<root><value>1</value><value>3</value></root>">.GetSample()
 
 [<Test>]
 #if NETCOREAPP2_0
-[<Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
+[<Ignore "SKIPPED: Disabled until FSharp.Data.dll is build for dotnet core.">]
 #endif
 let ``Test Project25 whole project errors`` () = 
     let wholeProjectResults = checker.ParseAndCheckProject(Project25.options) |> Async.RunSynchronously
@@ -3638,7 +3638,7 @@ let ``Test Project25 whole project errors`` () =
 
 [<Test>]
 #if NETCOREAPP2_0
-[<Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
+[<Ignore "SKIPPED: Disabled until FSharp.Data.dll is build for dotnet core.">]
 #endif
 let ``Test Project25 symbol uses of type-provided members`` () = 
     let wholeProjectResults = checker.ParseAndCheckProject(Project25.options) |> Async.RunSynchronously
@@ -3697,7 +3697,7 @@ let ``Test Project25 symbol uses of type-provided members`` () =
 
 [<Test>]
 #if NETCOREAPP2_0
-[<Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
+[<Ignore "SKIPPED: Disabled until FSharp.Data.dll is build for dotnet core.">]
 #endif
 let ``Test symbol uses of type-provided types`` () = 
     let wholeProjectResults = checker.ParseAndCheckProject(Project25.options) |> Async.RunSynchronously
@@ -4124,7 +4124,7 @@ let ``Test project31 whole project errors`` () =
 
 [<Test>]
 #if NETCOREAPP2_0
-[<Ignore("Fails on .NET Core - DebuggerTypeProxyAttribute and DebuggerDisplayAttribute note being emitted?")>]
+[<Ignore("SKIPPED: Fails on .NET Core - DebuggerTypeProxyAttribute and DebuggerDisplayAttribute note being emitted?")>]
 #endif
 let ``Test project31 C# type attributes`` () =
     if not runningOnMono then 
@@ -4173,7 +4173,7 @@ let ``Test project31 C# method attributes`` () =
 
 [<Test>]
 #if NETCOREAPP2_0
-[<Ignore("Fails on .NET Core - DebuggerTypeProxyAttribute and DebuggerDisplayAttribute note being emitted?")>]
+[<Ignore("SKIPPED: Fails on .NET Core - DebuggerTypeProxyAttribute and DebuggerDisplayAttribute note being emitted?")>]
 #endif
 let ``Test project31 Format C# type attributes`` () =
     if not runningOnMono then 
@@ -4363,7 +4363,7 @@ let ``Test Project34 whole project errors`` () =
 
 [<Test>]
 #if NETCOREAPP2_0
-[<Ignore("SKIPPED: check if these tests can be enabled for .NET Core testing of FSharp.Compiler.Service")>]
+[<Ignore("SKIPPED: need to check if these tests can be enabled for .NET Core testing of FSharp.Compiler.Service")>]
 #endif
 let ``Test project34 should report correct accessibility for System.Data.Listeners`` () =
     let wholeProjectResults = checker.ParseAndCheckProject(Project34.options) |> Async.RunSynchronously

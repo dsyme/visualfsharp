@@ -246,7 +246,6 @@ if /i "%ARG%" == "ci_part1" (
     set BUILD_NET40=1
     set BUILD_NET40_FSHARP_CORE=1
     set BUILD_VS=1
-    set BUILD_FCS=1
     set BUILD_NUGET=1
     set BUILD_SETUP=%FSC_BUILD_SETUP%
     set TEST_VS_IDEUNIT_SUITE=1
@@ -276,6 +275,7 @@ if /i "%ARG%" == "ci_part3" (
     set BUILD_CORECLR=1
     set BUILD_NET40_FSHARP_CORE=1
     set BUILD_NET40=1
+    set BUILD_FCS=1
     set TEST_CORECLR_FSHARP_SUITE=1
     set TEST_CORECLR_COREUNIT_SUITE=1
     set TEST_FCS=1
@@ -817,7 +817,7 @@ echo SNEXE32:           %SNEXE32%
 echo SNEXE64:           %SNEXE64%
 echo
 
-if "%TEST_NET40_COMPILERUNIT_SUITE%" == "0" if "%TEST_NET40_COREUNIT_SUITE%" == "0" if "%TEST_CORECLR_COREUNIT_SUITE%" == "0" if "%TEST_VS_IDEUNIT_SUITE%" == "0" if "%TEST_NET40_FSHARP_SUITE%" == "0" if "%TEST_NET40_FSHARPQA_SUITE%" == "0" goto :success
+if "%TEST_NET40_COMPILERUNIT_SUITE%" == "0" if "%TEST_FCS%" == "0" if "%TEST_NET40_COREUNIT_SUITE%" == "0" if "%TEST_CORECLR_COREUNIT_SUITE%" == "0" if "%TEST_VS_IDEUNIT_SUITE%" == "0" if "%TEST_NET40_FSHARP_SUITE%" == "0" if "%TEST_NET40_FSHARPQA_SUITE%" == "0" goto :success
 
 if "%no_test%" == "1" goto :success
 
@@ -884,13 +884,14 @@ REM ---------------- test-fcs  -----------------------
 if "%TEST_FCS%" == "1" (
 
     del /q fcs\FSharp.Compiler.Service.Tests\TestResults\*.trx
-    echo "!_dotnet20exe!" test fcs/FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj -c Release
-         "!_dotnet20exe!" test fcs/FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj -c Release
+    echo "!_dotnet20exe!" test fcs/FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj -c Release --logger:trx
+         "!_dotnet20exe!" test fcs/FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj -c Release --logger:trx
 
     if errorlevel 1 (
         type fcs\FSharp.Compiler.Service.Tests\TestResults\*.trx
         echo -----------------------------------------------------------------
         echo Error: Running FCS tests failed. See XML logging output above.
+        echo Error: Note that tests were run with both .NET Core and .NET Framework.
         echo Error: Try running tests locally and using 
         echo .
         echo    dotnet test fcs/FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj -c Release --logger:trx
