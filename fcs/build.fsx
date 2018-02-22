@@ -88,7 +88,20 @@ Target "BuildVersion" (fun _ ->
 )
 
 Target "Build" (fun _ ->
+#if MONO
+    // Using 'dotnet' to build .NET Framework projects fails on Mono, see https://github.com/dotnet/sdk/issues/335
+    // Use 'msbuild' instead
+    MSBuild "" "Build" ["Configuration","Release" ] 
+        [ "FSharp.Compiler.Service/FSharp.Compiler.Service.fsproj"
+          "FSharp.Compiler.Service.MSBuild.v12/FSharp.Compiler.Service.MSBuild.v12.fsproj"
+          "FSharp.Compiler.Service.ProjectCracker/FSharp.Compiler.Service.ProjectCracker.fsproj"
+          "FSharp.Compiler.Service.ProjectCrackerTool/FSharp.Compiler.Service.ProjectCrackerTool.fsproj"
+          "FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj" ]
+    |> Log (".NETFxBuild-Output: ")
+
+#else
     runDotnet __SOURCE_DIRECTORY__ (sprintf "build  %s -v n -c Release /maxcpucount:1"  "FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj")
+#endif
 )
 
 Target "Test" (fun _ ->
