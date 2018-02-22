@@ -17,6 +17,10 @@ CleanDir (__SOURCE_DIRECTORY__ + "/../tests/TestResults")
 File.WriteAllText(__SOURCE_DIRECTORY__ + "/../tests/TestResults/notestsyet.txt","No tests yet")
 #endif
 
+// --------------------------------------------------------------------------------------
+// Utilities
+// --------------------------------------------------------------------------------------
+
 let dotnetExePath = DotNetCli.InstallDotNetSDK "2.1.4"
 
 let runDotnet workingDir args =
@@ -28,11 +32,8 @@ let runDotnet workingDir args =
 
     if result <> 0 then failwithf "dotnet %s failed" args
 
-// --------------------------------------------------------------------------------------
-// Utilities
-// --------------------------------------------------------------------------------------
-
 let assertExitCodeZero x = if x = 0 then () else failwithf "Command failed with exit code %i" x
+
 let runCmdIn workDir (exe:string) = Printf.ksprintf (fun (args:string) ->
 #if MONO
         let exe = exe.Replace("\\","/")
@@ -91,6 +92,8 @@ Target "Build" (fun _ ->
 )
 
 Target "Test" (fun _ ->
+    runDotnet __SOURCE_DIRECTORY__ (sprintf "restore %s -v n"  "../tests/projects/Sample_NETCoreSDK_FSharp_Library_netstandard2_0/Sample_NETCoreSDK_FSharp_Library_netstandard2_0.fsproj")
+    runDotnet __SOURCE_DIRECTORY__ (sprintf "build  %s -v n"  "../tests/projects/Sample_NETCoreSDK_FSharp_Library_netstandard2_0/Sample_NETCoreSDK_FSharp_Library_netstandard2_0.fsproj")
     runDotnet __SOURCE_DIRECTORY__ (sprintf "test %s -v n -c Release /maxcpucount:1" "FSharp.Compiler.Service.Tests/FSharp.Compiler.Service.Tests.fsproj")
 )
 

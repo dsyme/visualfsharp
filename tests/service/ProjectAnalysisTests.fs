@@ -3626,10 +3626,9 @@ let _ = XmlProvider<"<root><value>1</value><value>3</value></root>">.GetSample()
            yield @"-r:" + sysLib "System.Xml.Linq" |]
     let options = checker.GetProjectOptionsFromCommandLineArgs (projFileName, args)
 
-#if NETCOREAPP2_0
-[<Test; Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
-#else
 [<Test>]
+#if NETCOREAPP2_0
+[<Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
 #endif
 let ``Test Project25 whole project errors`` () = 
     let wholeProjectResults = checker.ParseAndCheckProject(Project25.options) |> Async.RunSynchronously
@@ -3637,10 +3636,9 @@ let ``Test Project25 whole project errors`` () =
         printfn "Project25 error: <<<%s>>>" e.Message
     wholeProjectResults.Errors.Length |> shouldEqual 0
 
-#if NETCOREAPP2_0
-[<Test; Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
-#else
 [<Test>]
+#if NETCOREAPP2_0
+[<Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
 #endif
 let ``Test Project25 symbol uses of type-provided members`` () = 
     let wholeProjectResults = checker.ParseAndCheckProject(Project25.options) |> Async.RunSynchronously
@@ -3697,10 +3695,9 @@ let ``Test Project25 symbol uses of type-provided members`` () =
 
     usesOfGetSampleSymbol |> shouldEqual [|("file1", ((5, 8), (5, 25))); ("file1", ((10, 8), (10, 78)))|]
 
-#if NETCOREAPP2_0
-[<Test; Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
-#else
 [<Test>]
+#if NETCOREAPP2_0
+[<Ignore "Disabled until FSharp.Data.dll is build for dotnet core.">]
 #endif
 let ``Test symbol uses of type-provided types`` () = 
     let wholeProjectResults = checker.ParseAndCheckProject(Project25.options) |> Async.RunSynchronously
@@ -4366,7 +4363,7 @@ let ``Test Project34 whole project errors`` () =
 
 [<Test>]
 #if NETCOREAPP2_0
-[<Ignore("TODO: check if these tests can be enabled for .NET Core testing of FSharp.Compiler.Service")>]
+[<Ignore("SKIPPED: check if these tests can be enabled for .NET Core testing of FSharp.Compiler.Service")>]
 #endif
 let ``Test project34 should report correct accessibility for System.Data.Listeners`` () =
     let wholeProjectResults = checker.ParseAndCheckProject(Project34.options) |> Async.RunSynchronously
