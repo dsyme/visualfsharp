@@ -241,12 +241,11 @@ REM These divide "ci" into three chunks which can be done in parallel
 if /i "%ARG%" == "ci_part1" (
     set _autoselect=0
 
-    REM what we do
+    REM what we do - test Visual F# Tools
     set BUILD_PROTO=1
     set BUILD_NET40=1
     set BUILD_NET40_FSHARP_CORE=1
     set BUILD_VS=1
-    set BUILD_NUGET=1
     set BUILD_SETUP=%FSC_BUILD_SETUP%
     set TEST_VS_IDEUNIT_SUITE=1
     set CI=1
@@ -255,7 +254,7 @@ if /i "%ARG%" == "ci_part1" (
 if /i "%ARG%" == "ci_part2" (
     set _autoselect=0
 
-    REM what we do
+    REM what we do - test F# on .NET Framework
     set BUILD_PROTO=1
     set BUILD_NET40=1
     set BUILD_NET40_FSHARP_CORE=1
@@ -269,15 +268,28 @@ if /i "%ARG%" == "ci_part2" (
 if /i "%ARG%" == "ci_part3" (
     set _autoselect=0
 
-    REM what we do
+    REM what we do: test F# on Core CLR: nuget requires coreclr, fcs requires coreclr
+    set BUILD_PROTO_WITH_CORECLR_LKG=1
+    set BUILD_PROTO=1
+    set BUILD_CORECLR=1
+    set BUILD_NET40_FSHARP_CORE=1
+    set BUILD_NET40=1
+    set TEST_CORECLR_FSHARP_SUITE=1
+    set TEST_CORECLR_COREUNIT_SUITE=1
+    set CI=1
+)
+
+if /i "%ARG%" == "ci_part4" (
+    set _autoselect=0
+
+    REM what we do: test F# on Core CLR: nuget requires coreclr, fcs requires coreclr
     set BUILD_PROTO_WITH_CORECLR_LKG=1
     set BUILD_PROTO=1
     set BUILD_CORECLR=1
     set BUILD_NET40_FSHARP_CORE=1
     set BUILD_NET40=1
     set BUILD_FCS=1
-    set TEST_CORECLR_FSHARP_SUITE=1
-    set TEST_CORECLR_COREUNIT_SUITE=1
+    set BUILD_NUGET=1
     set TEST_FCS=1
     set CI=1
 )
