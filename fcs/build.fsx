@@ -72,6 +72,7 @@ Target "Clean" (fun _ ->
 )
 
 Target "Restore" (fun _ ->
+    runDotnet __SOURCE_DIRECTORY__ (sprintf "restore %s -v n"  "FSharp.Compiler.Service.sln")
     for p in (!! "./../**/packages.config") do
         let result =
             ExecProcess (fun info ->
