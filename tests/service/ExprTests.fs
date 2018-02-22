@@ -765,9 +765,9 @@ let ``Test Unoptimized Declarations Project1`` () =
 
 
 [<Test>]
-#if NETCOREAPP2_0
-[<Ignore("SKIPPED: need to check if these tests can be enabled for .NET Core testing of FSharp.Compiler.Service")>]
-#endif
+//#if NETCOREAPP2_0
+//[<Ignore("SKIPPED: need to check if these tests can be enabled for .NET Core testing of FSharp.Compiler.Service")>]
+//#endif
 let ``Test Optimized Declarations Project1`` () =
     let wholeProjectResults = exprChecker.ParseAndCheckProject(Project1.options) |> Async.RunSynchronously
 
