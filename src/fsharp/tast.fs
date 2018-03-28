@@ -1969,11 +1969,8 @@ and
     member x.Solution            = x.typar_solution
 
     /// The inferred constraints for the type inference variable, if any
-    member x.Constraints         = 
-        match x.typar_opt_data with
-        | optData -> optData.typar_constraints
-        //| _ -> []
-
+    member x.Constraints         = x.typar_opt_data.typar_constraints
+ 
     /// Indicates if the type variable is compiler generated, i.e. is an implicit type inference variable 
     member x.IsCompilerGenerated = x.typar_flags.IsCompilerGenerated
 
@@ -2005,29 +2002,18 @@ and
     /// The declared attributes of the type parameter. Empty for type inference variables and parameters from .NET 
     member x.Attribs             = x.typar_attribs
 
-    member x.XmlDoc              =
-        match x.typar_opt_data with
-        | optData -> optData.typar_xmldoc
-        //| _ -> XmlDoc.Empty
+    member x.XmlDoc              = x.typar_opt_data.typar_xmldoc
 
-    member x.ILName              =
-        match x.typar_opt_data with
-        | optData -> optData.typar_il_name
-        //| _ -> None
+    member x.ILName              = x.typar_opt_data.typar_il_name
 
-    member x.SetILName il_name   =
-        match x.typar_opt_data with
-        | optData -> optData.typar_il_name <- il_name
-        //| _ -> x.typar_opt_data <- Some { typar_il_name = il_name; typar_xmldoc = XmlDoc.Empty; typar_constraints = [] }
-
+    member x.SetILName il_name   = x.typar_opt_data.typar_il_name <- il_name
+        
     /// Indicates the display name of a type variable
     member x.DisplayName = if x.Name = "?" then "?"+string x.Stamp else x.Name
 
     /// Adjusts the constraints associated with a type variable
     member x.SetConstraints cs =
-        match x.typar_opt_data with
-        | optData -> optData.typar_constraints <- cs
-        //| _ -> x.typar_opt_data <- Some { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = cs }
+        x.typar_opt_data.typar_constraints <- cs
 
 
     /// Creates a type variable that contains empty data, and is not yet linked. Only used during unpickling of F# metadata.
@@ -2039,7 +2025,6 @@ and
           typar_solution = Unchecked.defaultof<_>
           typar_astype = Unchecked.defaultof<_>
           typar_opt_data =  { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = [] } }
-          //typar_opt_data = Unchecked.defaultof<_> }
 
     /// Creates a type variable based on the given data. Only used during unpickling of F# metadata.
     static member New (data: TyparData) : Typar = data
@@ -2051,21 +2036,9 @@ and
         x.typar_stamp <- tg.typar_stamp
         x.typar_attribs <- tg.typar_attribs
         x.typar_solution <- tg.typar_solution
-        match x.typar_opt_data with
-        | optData -> 
-            match tg.typar_opt_data with
-            //| None -> 
-            //    x.typar_opt_data <- None
-            |  tg ->
-                optData.typar_il_name <- tg.typar_il_name
-                optData.typar_xmldoc <- tg.typar_xmldoc
-                optData.typar_constraints <- tg.typar_constraints
-        //| None -> 
-        //    match tg.typar_opt_data with
-        //    | Some tg -> 
-        //        let optData = { typar_il_name = tg.typar_il_name; typar_xmldoc = tg.typar_xmldoc; typar_constraints = tg.typar_constraints }
-        //        x.typar_opt_data <- Some optData
-        //    | None -> ()
+        x.typar_opt_data.typar_il_name <- tg.typar_opt_data.typar_il_name
+        x.typar_opt_data.typar_xmldoc <- tg.typar_opt_data.typar_xmldoc
+        x.typar_opt_data.typar_constraints <- tg.typar_opt_data.typar_constraints
 
     /// Links a previously unlinked type variable to the given data. Only used during unpickling of F# metadata.
     member x.AsType = 
@@ -4998,7 +4971,6 @@ let NewTypar (kind,rigid,Typar(id,staticReq,isCompGen),isFromError,dynamicReq,at
         typar_solution = None
         typar_astype = Unchecked.defaultof<_>
         typar_opt_data = { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = [] } }
-//        typar_opt_data = None } 
 
 let NewRigidTypar nm m = NewTypar (TyparKind.Type,TyparRigidity.Rigid,Typar(mkSynId m nm,NoStaticReq,true),false,TyparDynamicReq.Yes,[],false,false)
 
