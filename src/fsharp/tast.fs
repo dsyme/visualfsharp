@@ -4959,12 +4959,12 @@ let MakeUnionRepr ucs = TUnionRepr (MakeUnionCases ucs)
 let NewTypar (kind,rigid,Typar(id,staticReq,isCompGen),isFromError,dynamicReq,attribs,eqDep,compDep) = 
     Typar.New
       { typar_id = id 
-        typar_stamp = newStamp() 
         typar_il_name = None
+        typar_stamp = newStamp() 
         typar_flags= TyparFlags(kind,rigid,isFromError,isCompGen,staticReq,dynamicReq,eqDep,compDep) 
         typar_attribs= attribs 
         typar_solution = None
-        typar_xmldoc = XmlDoc.Empty
+        typar_xmldoc = XmlDoc.Empty 
         typar_astype = Unchecked.defaultof<_>
         typar_opt_data = { typar_constraints = [] } }
 

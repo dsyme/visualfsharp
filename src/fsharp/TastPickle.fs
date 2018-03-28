@@ -1528,7 +1528,7 @@ let u_typar_spec_data st =
       typar_attribs=c
       typar_flags=TyparFlags(int32 d)
       typar_solution=None
-      typar_xmldoc = g
+      typar_xmldoc=g
       typar_astype= Unchecked.defaultof<_>
       typar_opt_data = { typar_constraints = e } }
 
