@@ -1951,7 +1951,7 @@ and
       /// A cached TAST type used when this type variable is used as type.
       mutable typar_astype: TType
       
-      mutable typar_opt_data: TyparOptionalData option }
+      typar_opt_data: TyparOptionalData  }
 
     /// The name of the type parameter 
     member x.Name                = x.typar_id.idText
@@ -1971,8 +1971,8 @@ and
     /// The inferred constraints for the type inference variable, if any
     member x.Constraints         = 
         match x.typar_opt_data with
-        | Some optData -> optData.typar_constraints
-        | _ -> []
+        | optData -> optData.typar_constraints
+        //| _ -> []
 
     /// Indicates if the type variable is compiler generated, i.e. is an implicit type inference variable 
     member x.IsCompilerGenerated = x.typar_flags.IsCompilerGenerated
@@ -2007,18 +2007,18 @@ and
 
     member x.XmlDoc              =
         match x.typar_opt_data with
-        | Some optData -> optData.typar_xmldoc
-        | _ -> XmlDoc.Empty
+        | optData -> optData.typar_xmldoc
+        //| _ -> XmlDoc.Empty
 
     member x.ILName              =
         match x.typar_opt_data with
-        | Some optData -> optData.typar_il_name
-        | _ -> None
+        | optData -> optData.typar_il_name
+        //| _ -> None
 
     member x.SetILName il_name   =
         match x.typar_opt_data with
-        | Some optData -> optData.typar_il_name <- il_name
-        | _ -> x.typar_opt_data <- Some { typar_il_name = il_name; typar_xmldoc = XmlDoc.Empty; typar_constraints = [] }
+        | optData -> optData.typar_il_name <- il_name
+        //| _ -> x.typar_opt_data <- Some { typar_il_name = il_name; typar_xmldoc = XmlDoc.Empty; typar_constraints = [] }
 
     /// Indicates the display name of a type variable
     member x.DisplayName = if x.Name = "?" then "?"+string x.Stamp else x.Name
@@ -2026,8 +2026,8 @@ and
     /// Adjusts the constraints associated with a type variable
     member x.SetConstraints cs =
         match x.typar_opt_data with
-        | Some optData -> optData.typar_constraints <- cs
-        | _ -> x.typar_opt_data <- Some { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = cs }
+        | optData -> optData.typar_constraints <- cs
+        //| _ -> x.typar_opt_data <- Some { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = cs }
 
 
     /// Creates a type variable that contains empty data, and is not yet linked. Only used during unpickling of F# metadata.
@@ -2038,7 +2038,8 @@ and
           typar_attribs = Unchecked.defaultof<_>       
           typar_solution = Unchecked.defaultof<_>
           typar_astype = Unchecked.defaultof<_>
-          typar_opt_data = Unchecked.defaultof<_> }
+          typar_opt_data =  { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = [] } }
+          //typar_opt_data = Unchecked.defaultof<_> }
 
     /// Creates a type variable based on the given data. Only used during unpickling of F# metadata.
     static member New (data: TyparData) : Typar = data
@@ -2051,20 +2052,20 @@ and
         x.typar_attribs <- tg.typar_attribs
         x.typar_solution <- tg.typar_solution
         match x.typar_opt_data with
-        | Some optData -> 
+        | optData -> 
             match tg.typar_opt_data with
-            | None -> 
-                x.typar_opt_data <- None
-            | Some tg ->
+            //| None -> 
+            //    x.typar_opt_data <- None
+            |  tg ->
                 optData.typar_il_name <- tg.typar_il_name
                 optData.typar_xmldoc <- tg.typar_xmldoc
                 optData.typar_constraints <- tg.typar_constraints
-        | None -> 
-            match tg.typar_opt_data with
-            | Some tg -> 
-                let optData = { typar_il_name = tg.typar_il_name; typar_xmldoc = tg.typar_xmldoc; typar_constraints = tg.typar_constraints }
-                x.typar_opt_data <- Some optData
-            | None -> ()
+        //| None -> 
+        //    match tg.typar_opt_data with
+        //    | Some tg -> 
+        //        let optData = { typar_il_name = tg.typar_il_name; typar_xmldoc = tg.typar_xmldoc; typar_constraints = tg.typar_constraints }
+        //        x.typar_opt_data <- Some optData
+        //    | None -> ()
 
     /// Links a previously unlinked type variable to the given data. Only used during unpickling of F# metadata.
     member x.AsType = 
@@ -4996,7 +4997,8 @@ let NewTypar (kind,rigid,Typar(id,staticReq,isCompGen),isFromError,dynamicReq,at
         typar_attribs= attribs 
         typar_solution = None
         typar_astype = Unchecked.defaultof<_>
-        typar_opt_data = None } 
+        typar_opt_data = { typar_il_name = None; typar_xmldoc = XmlDoc.Empty; typar_constraints = [] } }
+//        typar_opt_data = None } 
 
 let NewRigidTypar nm m = NewTypar (TyparKind.Type,TyparRigidity.Rigid,Typar(mkSynId m nm,NoStaticReq,true),false,TyparDynamicReq.Yes,[],false,false)
 

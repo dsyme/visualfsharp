@@ -1528,10 +1528,11 @@ let u_typar_spec_data st =
       typar_flags=TyparFlags(int32 d)
       typar_solution=None
       typar_astype= Unchecked.defaultof<_>
-      typar_opt_data=
-        match g, e with
-        | XmlDoc [||], [] -> None
-        | _ -> Some { typar_il_name = None; typar_xmldoc = g; typar_constraints = e } }
+      typar_opt_data = { typar_il_name = None; typar_xmldoc = g; typar_constraints = e } }
+      //typar_opt_data=
+      //  match g, e with
+      //  | XmlDoc [||], [] -> None
+      //  | _ -> Some { typar_il_name = None; typar_xmldoc = g; typar_constraints = e } }
 
 let u_typar_spec st = 
     u_osgn_decl st.itypars u_typar_spec_data st 
