@@ -2012,7 +2012,7 @@ and
     member x.DisplayName = if x.Name = "?" then "?"+string x.Stamp else x.Name
 
     /// Adjusts the constraints associated with a type variable
-    member x.SetConstraints cs =
+    member x.FixupConstraints cs =
         x.typar_opt_data.typar_constraints <- cs
 
 

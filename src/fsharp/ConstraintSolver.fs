@@ -1638,7 +1638,7 @@ and AddConstraint (csenv:ConstraintSolverEnv) ndeep m2 trace tp newConstraint  =
         // Write the constraint into the type variable 
         // Record a entry in the undo trace if one is provided 
         let orig = tp.Constraints
-        trace.Exec (fun () -> tp.SetConstraints newConstraints) (fun () -> tp.SetConstraints orig)
+        trace.Exec (fun () -> tp.FixupConstraints newConstraints) (fun () -> tp.FixupConstraints orig)
 
         CompleteD)))
 
