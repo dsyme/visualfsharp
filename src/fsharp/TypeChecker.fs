@@ -7968,7 +7968,9 @@ and TcComputationExpression cenv env overallTy mWhole interpExpr builderTy tpenv
                 match compClausesExpr with 
                 
                 // Detect one custom operation... This clause will always match at least once...
-                | OptionalSequential (CustomOperationClause (nm, (opName, _maintainsVarSpaceUsingBind, _maintainsVarSpace, _allowInto, isLikeZip, isLikeJoin, isLikeGroupJoin, _, methInfo), opExpr, mClause, optionalIntoPat), optionalCont) ->
+                | OptionalSequential (CustomOperationClause (nm, customOpData, opExpr, mClause, optionalIntoPat), optionalCont) ->
+
+                    let (opName, _maintainsVarSpaceUsingBind, _maintainsVarSpace, _allowInto, isLikeZip, isLikeJoin, isLikeGroupJoin, _, methInfo) = customOpData
 
                     // Record the resolution of the custom operation for posterity
                     let item = Item.CustomOperation (opName, (fun () -> customOpUsageText nm), Some methInfo)
@@ -11502,7 +11504,10 @@ and AnalyzeRecursiveInstanceMemberDecl
      | _ -> 
          error(Error(FSComp.SR.tcRecursiveBindingsWithMembersMustBeDirectAugmentation(), mBinding)) 
 
-and AnalyzeRecursiveDecl (cenv, envinner, tpenv, declKind, synTyparDecls, declaredTypars, thisIdOpt, valSynInfo, flex, newslotsOK, overridesOK, vis1, declPattern, bindingAttribs, tcrefContainerInfo, memberFlagsOpt, ty, bindingRhs, mBinding) =
+and AnalyzeRecursiveDecl (cenv, envinner, tpenv, declKind, synTyparDecls, declaredTypars, thisIdOpt, 
+                          valSynInfo, flex, newslotsOK, overridesOK, vis1, declPattern, bindingAttribs, 
+                          tcrefContainerInfo, memberFlagsOpt, ty, bindingRhs, mBinding) =
+
     let rec analyzeRecursiveDeclPat tpenv p = 
         match p with  
         | SynPat.FromParseError(pat', _) -> analyzeRecursiveDeclPat tpenv pat'
