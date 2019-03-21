@@ -583,6 +583,18 @@ type FSharpLineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
         | None -> lexbuf.EndPos <- Internal.Utilities.Text.Lexing.Position.Empty
         | Some(value) -> resetLexbufPos value lexbuf
      
+    // Column of token
+    let ColumnsOfCurrentToken() = 
+        let leftp = lexbuf.StartPos 
+        let rightp = lexbuf.EndPos 
+        let leftc = leftp.Column 
+        let rightc = 
+            match maxLength with 
+            | Some mx when rightp.Line > leftp.Line -> mx
+            | _ -> rightp.Column 
+        let rightc = rightc - 1   
+        leftc, rightc
+
     member x.ScanToken(lexintInitial) : FSharpTokenInfo option * FSharpTokenizerLexState = 
 
         use unwindBP = PushThreadBuildPhaseUntilUnwind BuildPhase.Parse
@@ -595,17 +607,6 @@ type FSharpLineTokenizer(lexbuf: UnicodeLexing.Lexbuf,
         let lexargs = if lightSyntaxStatusInital then lexArgsLightOn else lexArgsLightOff
 
         let GetTokenWithPosition(lexcontInitial) = 
-            // Column of token
-            let ColumnsOfCurrentToken() = 
-                let leftp = lexbuf.StartPos 
-                let rightp = lexbuf.EndPos 
-                let leftc = leftp.Column 
-                let rightc = 
-                    match maxLength with 
-                    | Some mx when rightp.Line > leftp.Line -> mx
-                    | _ -> rightp.Column 
-                let rightc = rightc - 1   
-                leftc, rightc
 
             // Get the token & position - either from a stack or from the lexer        
             try 

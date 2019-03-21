@@ -840,18 +840,13 @@ and verbatimString sargs skip = parse
       addUnicodeString buf (lexeme lexbuf) 
       if not skip then (STRING_TEXT (LexCont.VerbatimString(!args.ifdefStack,m)))  else verbatimString sargs skip lexbuf }
 
- | ident  
-    { let (buf,_fin,m,args) = sargs 
-      addUnicodeString buf (lexeme lexbuf) 
-      if not skip then (STRING_TEXT (LexCont.VerbatimString(!args.ifdefStack,m)))  else verbatimString sargs skip lexbuf }
-
- | integer 
- | xinteger
-    { let (buf,_fin,m,args) = sargs 
-      addUnicodeString buf (lexeme lexbuf) 
-      if not skip then (STRING_TEXT (LexCont.VerbatimString(!args.ifdefStack,m)))  else verbatimString sargs skip lexbuf }
-
- | anywhite +  
+ // Consume an entire line at once where possible
+ | (letter | digit
+    // punctuation besides '"'
+	| '!' | '$' | '%' | '^' | '&' | '*' | '(' | ')' | '_' | '-' | '=' | '+'
+	| '{' | '}' | '@' | '~' | '#' | ':' | ';' | '>' | '<' | ',' | '.' | '?'
+	| '/' | '|' | '\\' 
+   )+
     { let (buf,_fin,m,args) = sargs 
       addUnicodeString buf (lexeme lexbuf) 
       if not skip then (STRING_TEXT (LexCont.VerbatimString(!args.ifdefStack,m)))  else verbatimString sargs skip lexbuf }
@@ -859,7 +854,9 @@ and verbatimString sargs skip = parse
  | eof 
     { let (_buf,_fin,m,args) = sargs 
       EOF (LexCont.VerbatimString(!args.ifdefStack,m)) }
+
  | surrogateChar surrogateChar // surrogate code points always come in pairs            
+
  | _ 
     { let (buf,_fin,m,args) = sargs 
       addUnicodeString buf (lexeme lexbuf) 
