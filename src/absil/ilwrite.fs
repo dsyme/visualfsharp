@@ -89,8 +89,11 @@ type ByteBuffer with
     // Emit compressed untagged integer
     member buf.EmitZUntaggedIndex big idx = 
         if big then buf.EmitInt32 idx
-        elif idx > 0xffff then failwith "EmitZUntaggedIndex: too big for small address or simple index"
-        else buf.EmitInt32AsUInt16 idx
+        else
+            // idx 0x10000 is allowed for method table idx + 1 for just beyond last index of method table
+            if idx > 0x10000 then 
+                System.Diagnostics.Debug.Assert (false, "EmitZUntaggedIndex: too big for small address or simple index")
+            buf.EmitInt32AsUInt16 idx
 
     // Emit compressed tagged integer
     member buf.EmitZTaggedIndex tag nbits big idx =
@@ -3323,6 +3326,7 @@ let writeILMetadataAndCode (generatePdb, desiredMetadataVersion, ilg, emitTailca
                     | _ when t = RowElementTags.ULong         -> tablesBuf.EmitInt32 n
                     | _ when t = RowElementTags.Data          -> recordRequiredDataFixup requiredDataFixups tablesBuf (tablesStreamStart + tablesBuf.Position) (n, false)
                     | _ when t = RowElementTags.DataResources -> recordRequiredDataFixup requiredDataFixups tablesBuf (tablesStreamStart + tablesBuf.Position) (n, true)
+<<<<<<< HEAD
                     | _ when t = RowElementTags.Guid          -> tablesBuf.EmitZUntaggedIndex guidsBig (guidAddress n)
                     | _ when t = RowElementTags.Blob          -> tablesBuf.EmitZUntaggedIndex blobsBig  (blobAddress n)
                     | _ when t = RowElementTags.String        -> tablesBuf.EmitZUntaggedIndex stringsBig (stringAddress n)
@@ -3340,6 +3344,25 @@ let writeILMetadataAndCode (generatePdb, desiredMetadataVersion, ilg, emitTailca
                     | _ when t <= RowElementTags.ImplementationMax      -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.ImplementationMin)      2 iBigness    n
                     | _ when t <= RowElementTags.CustomAttributeTypeMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.CustomAttributeTypeMin) 3 catBigness  n
                     | _ when t <= RowElementTags.ResolutionScopeMax     -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.ResolutionScopeMin)     2 rsBigness   n
+=======
+                    | _ when t = RowElementTags.Guid -> tablesBuf.EmitZUntaggedIndex guidsBig (guidAddress n)
+                    | _ when t = RowElementTags.Blob -> tablesBuf.EmitZUntaggedIndex blobsBig (blobAddress n)
+                    | _ when t = RowElementTags.String -> tablesBuf.EmitZUntaggedIndex stringsBig (stringAddress n)
+                    | _ when t <= RowElementTags.SimpleIndexMax -> tablesBuf.EmitZUntaggedIndex (bigness (t - RowElementTags.SimpleIndexMin)) n
+                    | _ when t <= RowElementTags.TypeDefOrRefOrSpecMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.TypeDefOrRefOrSpecMin) 2 tdorBigness n
+                    | _ when t <= RowElementTags.TypeOrMethodDefMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.TypeOrMethodDefMin) 1 tomdBigness n
+                    | _ when t <= RowElementTags.HasConstantMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.HasConstantMin) 2 hcBigness n
+                    | _ when t <= RowElementTags.HasCustomAttributeMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.HasCustomAttributeMin) 5 hcaBigness n
+                    | _ when t <= RowElementTags.HasFieldMarshalMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.HasFieldMarshalMin) 1 hfmBigness n
+                    | _ when t <= RowElementTags.HasDeclSecurityMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.HasDeclSecurityMin) 2 hdsBigness n
+                    | _ when t <= RowElementTags.MemberRefParentMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.MemberRefParentMin) 3 mrpBigness n 
+                    | _ when t <= RowElementTags.HasSemanticsMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.HasSemanticsMin) 1 hsBigness n 
+                    | _ when t <= RowElementTags.MethodDefOrRefMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.MethodDefOrRefMin) 1 mdorBigness n
+                    | _ when t <= RowElementTags.MemberForwardedMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.MemberForwardedMin) 1 mfBigness n
+                    | _ when t <= RowElementTags.ImplementationMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.ImplementationMin) 2 iBigness n
+                    | _ when t <= RowElementTags.CustomAttributeTypeMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.CustomAttributeTypeMin) 3 catBigness n
+                    | _ when t <= RowElementTags.ResolutionScopeMax -> tablesBuf.EmitZTaggedIndex (t - RowElementTags.ResolutionScopeMin) 2 rsBigness n
+>>>>>>> c08796f82... allow method idx + 1 index
                     | _ -> failwith "invalid tag in row element"
 
         tablesBuf.Close()
