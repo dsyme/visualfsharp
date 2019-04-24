@@ -134,7 +134,7 @@ let ImportILTypeRefUncached (env: ImportMap) m (tref: ILTypeRef) =
     
 /// Import a reference to a type definition, given an AbstractIL ILTypeRef, with caching
 let ImportILTypeRef (env: ImportMap) m (tref: ILTypeRef) =
-    match env.ILTypeRefToTyconRefCache.TryGetValue(tref) with
+    match env.ILTypeRefToTyconRefCache.TryGetValue tref with
     | true, tcref -> tcref
     | _ ->
         let tcref = ImportILTypeRefUncached  env m tref
@@ -408,9 +408,9 @@ let ImportILGenericParameters amap m scoref tinst (gps: ILGenericParameterDefs) 
         let importInst = tinst@tptys
         (tps, gps) ||> List.iter2 (fun tp gp -> 
             let constraints = gp.Constraints |> List.map (fun ilty -> TyparConstraint.CoercesTo(ImportILType amap m importInst (rescopeILType scoref ilty), m) )
-            let constraints = if gp.HasReferenceTypeConstraint then (TyparConstraint.IsReferenceType(m)::constraints) else constraints
-            let constraints = if gp.HasNotNullableValueTypeConstraint then (TyparConstraint.IsNonNullableStruct(m)::constraints) else constraints
-            let constraints = if gp.HasDefaultConstructorConstraint then (TyparConstraint.RequiresDefaultConstructor(m)::constraints) else constraints
+            let constraints = if gp.HasReferenceTypeConstraint then (TyparConstraint.IsReferenceType(m) :: constraints) else constraints
+            let constraints = if gp.HasNotNullableValueTypeConstraint then (TyparConstraint.IsNonNullableStruct(m) :: constraints) else constraints
+            let constraints = if gp.HasDefaultConstructorConstraint then (TyparConstraint.RequiresDefaultConstructor(m) :: constraints) else constraints
             tp.SetConstraints constraints)
         tps
 
@@ -436,7 +436,7 @@ let multisetDiscriminateAndMap nodef tipf (items: ('Key list * 'Value) list) =
             | [] -> ()
             | key :: rest ->
                 buckets.[key] <-
-                    match buckets.TryGetValue(key) with
+                    match buckets.TryGetValue key with
                     | true, b -> (rest, v) :: b
                     | _ -> (rest, v) :: []
 

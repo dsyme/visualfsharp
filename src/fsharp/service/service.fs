@@ -225,7 +225,7 @@ module CompileHelpers =
         // Register the reflected definitions for the dynamically generated assembly
         for resource in ilxMainModule.Resources.AsList do 
             if IsReflectedDefinitionsResource resource then 
-                Quotations.Expr.RegisterReflectedDefinitions(assemblyBuilder, moduleBuilder.Name, resource.GetBytes())
+                Quotations.Expr.RegisterReflectedDefinitions (assemblyBuilder, moduleBuilder.Name, resource.GetBytes())
 
         // Save the result
         assemblyBuilderRef := Some assemblyBuilder
@@ -745,14 +745,18 @@ type BackgroundCompiler(legacyReferenceResolver, projectCacheSize, keepAssemblyC
     member bc.ParseAndCheckProject(options, userOpName) =
         reactor.EnqueueAndAwaitOpAsync(userOpName, "ParseAndCheckProject", options.ProjectFileName, fun ctok -> bc.ParseAndCheckProjectImpl(options, ctok, userOpName))
 
+<<<<<<< HEAD
     member __.GetProjectOptionsFromScript(filename, sourceText, loadedTimeStamp, otherFlags, useFsiAuxLib: bool option, assumeDotNetFramework: bool option, extraProjectInfo: obj option, optionsStamp: int64 option, userOpName) = 
+=======
+    member bc.GetProjectOptionsFromScript(filename, sourceText, loadedTimeStamp, otherFlags, useFsiAuxLib: bool option, useSdkRefs: bool option, assumeDotNetFramework: bool option, extraProjectInfo: obj option, optionsStamp: int64 option, userOpName) = 
+>>>>>>> 8bada6435aa4a6a9ca7c9597baa61245d5785032
         reactor.EnqueueAndAwaitOpAsync (userOpName, "GetProjectOptionsFromScript", filename, fun ctok -> 
           cancellable {
             use errors = new ErrorScope()
 
             // Do we add a reference to FSharp.Compiler.Interactive.Settings by default?
             let useFsiAuxLib = defaultArg useFsiAuxLib true
-
+            let useSdkRefs =  defaultArg useSdkRefs true
             let reduceMemoryUsage = ReduceMemoryFlag.Yes
 
             // Do we assume .NET Framework references for scripts?
@@ -771,8 +775,13 @@ type BackgroundCompiler(legacyReferenceResolver, projectCacheSize, keepAssemblyC
 
             let loadClosure = 
                 LoadClosure.ComputeClosureOfScriptText(ctok, legacyReferenceResolver, 
+<<<<<<< HEAD
                     FSharpCheckerResultsSettings.defaultFSharpBinariesDir, filename, sourceText, 
                     CodeContext.Editing, useSimpleResolution, useFsiAuxLib, new Lexhelp.LexResourceManager(), 
+=======
+                    defaultFSharpBinariesDir, filename, sourceText, 
+                    CodeContext.Editing, useSimpleResolution, useFsiAuxLib, useSdkRefs, new Lexhelp.LexResourceManager(), 
+>>>>>>> 8bada6435aa4a6a9ca7c9597baa61245d5785032
                     applyCompilerOptions, assumeDotNetFramework, 
                     tryGetMetadataSnapshot=tryGetMetadataSnapshot, 
                     reduceMemoryUsage=reduceMemoryUsage)
@@ -1143,11 +1152,19 @@ type FSharpChecker(legacyReferenceResolver,
         backgroundCompiler.KeepProjectAlive(options, userOpName)
 
     /// For a given script file, get the ProjectOptions implied by the #load closure
+<<<<<<< HEAD
     member __.GetProjectOptionsFromScript(filename, sourceText, ?loadedTimeStamp, ?otherFlags, ?useFsiAuxLib, ?assumeDotNetFramework, ?extraProjectInfo: obj, ?optionsStamp: int64, ?userOpName: string) = 
         let userOpName = defaultArg userOpName "Unknown"
         backgroundCompiler.GetProjectOptionsFromScript(filename, sourceText, loadedTimeStamp, otherFlags, useFsiAuxLib, assumeDotNetFramework, extraProjectInfo, optionsStamp, userOpName)
         
     member __.GetProjectOptionsFromCommandLineArgs(projectFileName, argv, ?loadedTimeStamp, ?extraProjectInfo: obj) = 
+=======
+    member ic.GetProjectOptionsFromScript(filename, source, ?loadedTimeStamp, ?otherFlags, ?useFsiAuxLib, ?useSdkRefs, ?assumeDotNetFramework, ?extraProjectInfo: obj, ?optionsStamp: int64, ?userOpName: string) = 
+        let userOpName = defaultArg userOpName "Unknown"
+        backgroundCompiler.GetProjectOptionsFromScript(filename, source, loadedTimeStamp, otherFlags, useFsiAuxLib, useSdkRefs, assumeDotNetFramework, extraProjectInfo, optionsStamp, userOpName)
+
+    member ic.GetProjectOptionsFromCommandLineArgs(projectFileName, argv, ?loadedTimeStamp, ?extraProjectInfo: obj) = 
+>>>>>>> 8bada6435aa4a6a9ca7c9597baa61245d5785032
         let loadedTimeStamp = defaultArg loadedTimeStamp DateTime.MaxValue // Not 'now', we don't want to force reloading
         { ProjectFileName = projectFileName
           ProjectId = None
@@ -1242,6 +1259,54 @@ type FSharpChecker(legacyReferenceResolver,
                    yield tokens |]
         tokens
 
+<<<<<<< HEAD
+=======
+
+type FsiInteractiveChecker(legacyReferenceResolver, reactorOps: IReactorOperations, tcConfig: TcConfig, tcGlobals, tcImports, tcState) =
+    let keepAssemblyContents = false
+
+    member __.ParseAndCheckInteraction (ctok, sourceText: ISourceText, ?userOpName: string) =
+        async {
+            let userOpName = defaultArg userOpName "Unknown"
+            let filename = Path.Combine(tcConfig.implicitIncludeDir, "stdin.fsx")
+            let suggestNamesForErrors = true // Will always be true, this is just for readability
+            // Note: projectSourceFiles is only used to compute isLastCompiland, and is ignored if Build.IsScript(mainInputFileName) is true (which it is in this case).
+            let parsingOptions = FSharpParsingOptions.FromTcConfig(tcConfig, [| filename |], true)
+            let parseErrors, parseTreeOpt, anyErrors = Parser.parseFile (sourceText, filename, parsingOptions, userOpName, suggestNamesForErrors)
+            let dependencyFiles = [| |] // interactions have no dependencies
+            let parseResults = FSharpParseFileResults(parseErrors, parseTreeOpt, parseHadErrors = anyErrors, dependencyFiles = dependencyFiles)
+            
+            let backgroundDiagnostics = [| |]
+            let reduceMemoryUsage = ReduceMemoryFlag.Yes
+            let assumeDotNetFramework = true
+
+            let applyCompilerOptions tcConfigB  = 
+                let fsiCompilerOptions = CompileOptions.GetCoreFsiCompilerOptions tcConfigB 
+                CompileOptions.ParseCompilerOptions (ignore, fsiCompilerOptions, [ ])
+
+            let loadClosure = LoadClosure.ComputeClosureOfScriptText(ctok, legacyReferenceResolver, defaultFSharpBinariesDir, filename, sourceText, CodeContext.Editing, tcConfig.useSimpleResolution, tcConfig.useFsiAuxLib, tcConfig.useSdkRefs, new Lexhelp.LexResourceManager(), applyCompilerOptions, assumeDotNetFramework, tryGetMetadataSnapshot=(fun _ -> None), reduceMemoryUsage=reduceMemoryUsage)
+            let! tcErrors, tcFileResult =  Parser.CheckOneFile(parseResults, sourceText, filename, "project", tcConfig, tcGlobals, tcImports,  tcState, Map.empty, Some loadClosure, backgroundDiagnostics, reactorOps, (fun () -> true), None, userOpName, suggestNamesForErrors)
+
+            return
+                match tcFileResult with 
+                | Parser.TypeCheckAborted.No tcFileInfo ->
+                    let errors = [|  yield! parseErrors; yield! tcErrors |]
+                    let typeCheckResults = FSharpCheckFileResults (filename, errors, Some tcFileInfo, dependencyFiles, None, reactorOps, false)   
+                    let projectResults = 
+                        FSharpCheckProjectResults (filename, Some tcConfig, keepAssemblyContents, errors, 
+                                                   Some(tcGlobals, tcImports, tcFileInfo.ThisCcu, tcFileInfo.CcuSigForFile,
+                                                        [tcFileInfo.ScopeSymbolUses], None, None, mkSimpleAssemblyRef "stdin", 
+                                                        tcState.TcEnvFromImpls.AccessRights, None, dependencyFiles))
+                    parseResults, typeCheckResults, projectResults
+                | _ -> 
+                    failwith "unexpected aborted"
+        }
+
+//----------------------------------------------------------------------------
+// CompilerEnvironment, DebuggerEnvironment
+//
+
+>>>>>>> 8bada6435aa4a6a9ca7c9597baa61245d5785032
 type CompilerEnvironment =
   static member BinFolderOfDefaultFSharpCompiler(?probePoint) =
       FSharpEnvironment.BinFolderOfDefaultFSharpCompiler(probePoint)
