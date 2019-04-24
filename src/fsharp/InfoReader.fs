@@ -107,7 +107,7 @@ type PropertyCollector(g, amap, m, ty, optFilter, ad) =
     let props = new Dictionary<PropInfo, PropInfo>(hashIdentity)
 
     let add pinfo =
-        match props.TryGetValue(pinfo), pinfo with
+        match props.TryGetValue pinfo, pinfo with
         | (true, FSProp (_, ty, Some vref1, _)), FSProp (_, _, _, Some vref2)
         | (true, FSProp (_, ty, _, Some vref2)), FSProp (_, _, Some vref1, _) ->
             let pinfo = FSProp (g, ty, Some vref1, Some vref2)
@@ -316,9 +316,9 @@ type InfoReader(g: TcGlobals, amap: Import.ImportMap) =
              let einfos = ComputeImmediateIntrinsicEventsOfType (optFilter, ad) m ty 
              let rfinfos = GetImmediateIntrinsicRecdOrClassFieldsOfType (optFilter, ad) m ty 
              match acc with 
-             | Some(MethodItem(inheritedMethSets)) when not (isNil minfos) -> Some(MethodItem (minfos::inheritedMethSets))
+             | Some(MethodItem(inheritedMethSets)) when not (isNil minfos) -> Some(MethodItem (minfos :: inheritedMethSets))
              | _ when not (isNil minfos) -> Some(MethodItem ([minfos]))
-             | Some(PropertyItem(inheritedPropSets)) when not (isNil pinfos) -> Some(PropertyItem(pinfos::inheritedPropSets))
+             | Some(PropertyItem(inheritedPropSets)) when not (isNil pinfos) -> Some(PropertyItem(pinfos :: inheritedPropSets))
              | _ when not (isNil pinfos) -> Some(PropertyItem([pinfos]))
              | _ when not (isNil finfos) -> Some(ILFieldItem(finfos))
              | _ when not (isNil einfos) -> Some(EventItem(einfos))
@@ -509,7 +509,7 @@ type private IndexedList<'T>(itemLists: 'T list list, itemsByName: NameMultiMap<
     member x.ItemsWithName(nm)  = NameMultiMap.find nm itemsByName
 
     /// Add new items, extracting the names using the given function.
-    member x.AddItems(items, nmf) = IndexedList<'T>(items::itemLists, List.foldBack (fun x acc -> NameMultiMap.add (nmf x) x acc) items itemsByName )
+    member x.AddItems(items, nmf) = IndexedList<'T>(items :: itemLists, List.foldBack (fun x acc -> NameMultiMap.add (nmf x) x acc) items itemsByName )
 
     /// Get an empty set of items
     static member Empty = IndexedList<'T>([], NameMultiMap.empty)
