@@ -70,6 +70,4 @@ public static class TaskPerfCSharp
     {
         return 1;
     }
-
 }
-

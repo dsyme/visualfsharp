@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\src\fsharp\FSharp.Core\FSharp.Core.fsproj" />
+    <ProjectReference Include="..\CS\TaskPerfCSharp.csproj" />
+    <ProjectReference Include="..\FS\TaskPerf.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="benchmarkdotnet" Version="0.11.5" />
+  </ItemGroup>
+</Project>

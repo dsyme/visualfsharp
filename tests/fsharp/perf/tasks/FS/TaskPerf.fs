@@ -5,18 +5,13 @@ artifacts\bin\fsc\Debug\net472\fsc.exe tests\fsharp\perf\tasks\TaskBuilder.fs te
 
 namespace TaskPerf
 
-//open FSharp.Control.Tasks
-open System.Diagnostics
 open System.Threading.Tasks
 open System.IO
-open BenchmarkDotNet.Attributes
-open BenchmarkDotNet.Running
 open TaskBuilderTasks.ContextSensitive // TaskBuilder.fs extension members
 open FSharp.Control.ContextSensitiveTasks // the default
 
-//[<ShortRunJob>]
-type TaskPerfTests() =
-    let bufferSize = 128
+module TaskPerfFSharp =
+    let private bufferSize = 128
     let manyIterations = 10000
 
     let syncTask() = Task.FromResult 100
@@ -98,22 +93,6 @@ type TaskPerfTests() =
             do! asyncTask()
          }
 
-(*
-     let tenBindAsync_FSharpAsync() =
-        taskBuilder {
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-            do! Async.Sleep(0)
-         }
-*)
-
     let singleTask_Task() =
         task { return 1 }
 
@@ -123,12 +102,7 @@ type TaskPerfTests() =
     let singleTask_FSharpAsync() =
         async { return 1 }
 
-    [<Benchmark>]
-    member __.ManyWriteFile_CSharpAsync () =
-        TaskPerfCSharp.ManyWriteFileAsync().Wait();
-
-    [<Benchmark>]
-    member __.ManyWriteFile_Task () =
+    let manyWriteFile_Task () =
         let path = Path.GetTempFileName()
         task {
             let junk = Array.zeroCreate bufferSize
@@ -139,8 +113,7 @@ type TaskPerfTests() =
         |> fun t -> t.Wait()
         File.Delete(path)
 
-    [<Benchmark>]
-    member __.ManyWriteFile_TaskBuilder () =
+    let manyWriteFile_TaskBuilder () =
         let path = Path.GetTempFileName()
         TaskBuilderTasks.ContextSensitive.task {
             let junk = Array.zeroCreate bufferSize
@@ -151,8 +124,7 @@ type TaskPerfTests() =
         |> fun t -> t.Wait()
         File.Delete(path)
 
-    [<Benchmark>]
-    member __.ManyWriteFile_FSharpAsync () =
+    let manyWriteFile_FSharpAsync () =
         let path = Path.GetTempFileName()
         async {
             let junk = Array.zeroCreate bufferSize
@@ -162,70 +134,3 @@ type TaskPerfTests() =
         }
         |> Async.RunSynchronously
         File.Delete(path)
-
-    [<Benchmark>]
-    member __.SyncBinds_CSharpAsync() = 
-         for i in 1 .. manyIterations*100 do 
-             TaskPerfCSharp.TenBindsSync_CSharp().Wait() 
-
-    [<Benchmark>]
-    member __.SyncBinds_Task() = 
-        for i in 1 .. manyIterations*100 do 
-             tenBindSync_Task().Wait() 
-
-    [<Benchmark>]
-    member __.SyncBinds_TaskBuilder() = 
-        for i in 1 .. manyIterations*100 do 
-             tenBindSync_TaskBuilder().Wait() 
-
-    [<Benchmark>]
-    member __.SyncBinds_FSharpAsync() = 
-        for i in 1 .. manyIterations*100 do 
-             tenBindSync_FSharpAsync() |> Async.RunSynchronously |> ignore
-
-    [<Benchmark>]
-    member __.AsyncBinds_CSharpAsync() = 
-         for i in 1 .. manyIterations do 
-             TaskPerfCSharp.TenBindsAsync_CSharp().Wait() 
-
-    [<Benchmark>]
-    member __.AsyncBinds_Task() = 
-         for i in 1 .. manyIterations do 
-             tenBindAsync_Task().Wait() 
-
-    [<Benchmark>]
-    member __.AsyncBinds_TaskBuilder() = 
-         for i in 1 .. manyIterations do 
-             tenBindAsync_TaskBuilder().Wait() 
-
-    //[<Benchmark>]
-    //member __.AsyncBinds_FSharpAsync() = 
-    //     for i in 1 .. manyIterations do 
-    //         tenBindAsync_FSharpAsync() |> Async.RunSynchronously 
-
-    [<Benchmark>]
-    member __.SingleSyncTask_CSharpAsync() = 
-         for i in 1 .. manyIterations*500 do 
-             TaskPerfCSharp.SingleSyncTask_CSharp().Wait() 
-
-    [<Benchmark>]
-    member __.SingleSyncTask_Task() = 
-         for i in 1 .. manyIterations*500 do 
-             singleTask_Task().Wait() 
-
-    [<Benchmark>]
-    member __.SingleSyncTask_TaskBuilder() = 
-         for i in 1 .. manyIterations*500 do 
-             singleTask_TaskBuilder().Wait() 
-
-    [<Benchmark>]
-    member __.SingleSyncTask_FSharpAsync() = 
-         for i in 1 .. manyIterations*500 do 
-             singleTask_FSharpAsync() |> Async.RunSynchronously |> ignore
-
-module Main = 
-
-    [<EntryPoint>]
-    let main argv = 
-        let summary = BenchmarkRunner.Run<TaskPerfTests>();
-        0  
