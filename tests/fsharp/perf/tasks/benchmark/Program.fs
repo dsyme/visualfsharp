@@ -47,7 +47,7 @@ type SyncBindsBenchmark() =
 
 [<MemoryDiagnoser>]
 type AsyncBindsBenchmark() =
-    [<Benchmark>]
+    [<Benchmark(Baseline=true)>]
     member __.AsyncBinds_CSharpAsync() =
          for __ in 1 .. TaskPerfCSharp.ManyIterations do
              TaskPerfCSharp.TenBindsAsync_CSharp().Wait()
@@ -64,7 +64,7 @@ type AsyncBindsBenchmark() =
 
 [<MemoryDiagnoser>]
 type SingleTaskBenchmark() =
-    [<Benchmark>]
+    [<Benchmark(Baseline=true)>]
     member __.SingleSyncTask_CSharpAsync() = 
          for __ in 1 .. TaskPerfCSharp.ManyIterations*500 do 
              TaskPerfCSharp.SingleSyncTask_CSharp().Wait() 
