@@ -487,7 +487,8 @@ let symmetricDiff comparer s1 s2 =
 *)
 
     // This is a rough outline.  The problem is that when encountering 'SetNode' nodes we allocate 
-    // several objects - list node and SetOne objects - as we "collapse" the node and sequentialize it
+    // SetOne objects (as we "collapse" the node and sequentialize it).  We also allocate the two
+    // stack objects and push/pop from the stack
     // It feels like there must be a better way of doing this, though it is similar to the IEnumerator and
     // comparison implemntations above....
     //
@@ -496,50 +497,75 @@ let symmetricDiff comparer s1 s2 =
     // Whatever we do we should do extensive performance tests...  These must also detect that the "Object.ReferenceEquals" case
     // for sub-trees is being respected.
     //
-    let rec symmetricDiffWithStacks (comparer: IComparer<'T>) (consumer: OptimizedClosures.FSharpFunc<_, _, _>) l1 l2 =
-        match l1, l2 with 
-        | [], [] ->  ()
-        
-        | (SetOne n1k :: t1), [] -> 
-            consumer.Invoke(n1k, true)
-            symmetricDiffWithStacks comparer consumer t1 l2
-        
-        | [], (SetOne n2k :: t2) -> 
-            consumer.Invoke(n2k, false)
-            symmetricDiffWithStacks comparer consumer l1 t2
-
-        // Check for two pointer-equivalent sub-trees
-        | (h1 :: t1), (h2 :: t2) when Object.ReferenceEquals(h1,h2) -> symmetricDiffWithStacks comparer consumer t1 t2
-        
-        | (SetEmpty  _ :: t1), t2 -> symmetricDiffWithStacks comparer consumer t1 t2
-        
-        | t1, (SetEmpty :: t2) -> symmetricDiffWithStacks comparer consumer t1 t2
-        
-        | (SetOne n1k :: t1), (SetOne n2k :: t2) -> 
-             let c = comparer.Compare(n1k, n2k) 
-             if c = 0 then 
-                 symmetricDiffWithStacks comparer consumer t1 t2
-             elif c < 0 then 
-                 consumer.Invoke(n1k, true)
-                 symmetricDiffWithStacks comparer consumer t1 l2
-             else 
-                 consumer.Invoke(n2k, false)
-                 symmetricDiffWithStacks comparer consumer l1 t2
-
-        // collapse l1 - allocating!
-        | (SetNode (n1k, n1l, n1r, _) :: t1), _ -> 
-             symmetricDiffWithStacks comparer consumer (n1l :: SetOne n1k :: n1r :: t1) l2
-        
-        // collapse l2 - allocating!
-        | _ , (SetNode (n2k, n2l, n2r, _) :: t2) -> 
-             symmetricDiffWithStacks comparer consumer l1 (n2l :: SetOne n2k :: n2r :: t2)
-
-    let symmetricDiffWith comparer s1 s2 consumer = 
+    let symmetricDiffWith (comparer: IComparer<_>) s1 s2 consumer = 
         if Object.ReferenceEquals(s1,s2) then 
             () 
         else
+            // TODO: add some shortcut cases?
             let consumer = OptimizedClosures.FSharpFunc<_, _, _>.Adapt consumer
-            symmetricDiffWithStacks comparer consumer [s1] [s2]
+            let stack1 = Stack<_>()
+            let stack2 = Stack<_>()
+            stack1.Push s1
+            stack2.Push s2
+            let mutable fin = false
+            while not fin do
+                let has1 = stack1.Count > 0
+                let has2 = stack2.Count > 0
+                if has1 then
+                    let h1 = stack1.Pop()
+                    match h1 with 
+                    | SetEmpty -> ()
+                    | _ -> 
+                        if has2 then
+                            let h2 = stack2.Pop()
+                            // Check for two pointer-equivalent sub-trees
+                            if not (Object.ReferenceEquals(h1,h2)) then
+                                match h1, h2 with 
+                                | SetEmpty, _ -> ()
+                                | _, SetEmpty -> ()
+                                | SetOne n1k, SetOne n2k  -> 
+                                     let c = comparer.Compare(n1k, n2k) 
+                                     if c = 0 then 
+                                         ()
+                                     elif c < 0 then 
+                                         consumer.Invoke(n1k, true)
+                                         stack2.Push h2
+                                     else 
+                                         consumer.Invoke(n2k, false)
+                                         stack1.Push h1
+
+                                // collapse l1 - allocating!
+                                | SetNode (n1k, n1l, n1r, _), _ -> 
+                                   stack1.Push n1r
+                                   stack1.Push (SetOne n1k)
+                                   stack1.Push n1l
+
+                                // collapse l2 - allocating!
+                                | _, SetNode (n2k, n2l, n2r, _) -> 
+                                   stack2.Push n2r
+                                   stack2.Push (SetOne n2k)
+                                   stack2.Push n2l
+                        else
+                            match h1 with 
+                            | SetOne n1k  -> 
+                                consumer.Invoke(n1k, true)
+                            | SetEmpty -> ()
+                            // collapse l1 - allocating!
+                            | SetNode (n1k, n1l, n1r, _) -> 
+                               stack1.Push n1r
+                               stack1.Push (SetOne n1k)
+                               stack1.Push n1l
+                elif has2 then
+                    match stack2.Pop() with 
+                    | SetOne n2k  -> 
+                        consumer.Invoke(n2k, false)
+                    | SetEmpty -> ()
+                    | SetNode (n2k, n2l, n2r, _) -> 
+                        stack2.Push n2r
+                        stack2.Push (SetOne n2k)
+                        stack2.Push n2l
+                else 
+                    fin <- true
 
     let choose s =
         minimumElement s
