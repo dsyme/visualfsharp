@@ -477,17 +477,48 @@ module internal SetTree =
         | _, SetEmpty -> 1
         | _ -> compareStacks comparer [s1] [s2]
 
-    let symmetricDiff comparer s1 s2 = 
+(*
+let symmetricDiff comparer s1 s2 = 
         seq { 
            match s1, s2 with 
            | SetEmpty, SetEmpty -> ()
            | _ -> failwith "tbd"
         }
+*)
+
+    let rec symmetricDiffWithStacks (comparer: IComparer<'T>) consumer l1 l2 =
+        match l1, l2 with 
+        | [], [] ->  ()
+        | [], (SetOne n2k :: t2) -> 
+            consumer n2k false
+            symmetricDiffWithStacks comparer consumer l1 t2
+        | (SetOne n1k :: t1), [] -> 
+            consumer n1k false
+            symmetricDiffWithStacks comparer consumer t1 l2
+        | (h1 :: t1), (h2 :: t2) when Object.ReferenceEquals(h1,h2) -> symmetricDiffWithStacks comparer consumer t1 t2
+        | (SetEmpty  _ :: t1), t2 -> symmetricDiffWithStacks comparer consumer t1 t2
+        | t1, (SetEmpty :: t2) -> symmetricDiffWithStacks comparer consumer t1 t2
+        | (SetOne n1k :: t1), (SetOne n2k :: t2) -> 
+             let c = comparer.Compare(n1k, n2k) 
+             if c = 0 then 
+                 symmetricDiffWithStacks comparer consumer t1 t2
+             elif c < 0 then 
+                 consumer n1k true
+                 symmetricDiffWithStacks comparer consumer t1 l2
+             else 
+                 consumer n2k false
+                 symmetricDiffWithStacks comparer consumer l1 t2
+
+        | (SetNode (n1k, n1l, n1r, _) :: t1), _ -> 
+             // collapse l1 - allocating!
+             symmetricDiffWithStacks comparer consumer (n1l :: SetOne n1k :: n1r :: t1) l2
+        | _ , (SetNode (n2k, n2l, n2r, _) :: t2) -> 
+             // collapse l2 - allocating!
+             symmetricDiffWithStacks comparer consumer l1 (n2l :: SetOne n2k :: n2r :: t2)
 
     let symmetricDiffWith comparer s1 s2 consumer = 
-        match s1, s2 with 
-        | SetEmpty, SetEmpty -> ()
-        | _ -> failwith "tbd"
+        if Object.ReferenceEquals(s1,s2) then () else
+        symmetricDiffWithStacks comparer consumer [s1] [s2]
 
     let choose s =
         minimumElement s
