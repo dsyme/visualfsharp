@@ -486,39 +486,60 @@ let symmetricDiff comparer s1 s2 =
         }
 *)
 
-    let rec symmetricDiffWithStacks (comparer: IComparer<'T>) consumer l1 l2 =
+    // This is a rough outline.  The problem is that when encountering 'SetNode' nodes we allocate 
+    // several objects - list node and SetOne objects - as we "collapse" the node and sequentialize it
+    // It feels like there must be a better way of doing this, though it is similar to the IEnumerator and
+    // comparison implemntations above....
+    //
+    // Also, the use of a tail-recursive function feels worse than the use of a while loop with two work lists....
+    //
+    // Whatever we do we should do extensive performance tests...  These must also detect that the "Object.ReferenceEquals" case
+    // for sub-trees is being respected.
+    //
+    let rec symmetricDiffWithStacks (comparer: IComparer<'T>) (consumer: OptimizedClosures.FSharpFunc<_, _, _>) l1 l2 =
         match l1, l2 with 
         | [], [] ->  ()
+        
         | (SetOne n1k :: t1), [] -> 
-            consumer n1k true
+            consumer.Invoke(n1k, true)
             symmetricDiffWithStacks comparer consumer t1 l2
+        
         | [], (SetOne n2k :: t2) -> 
-            consumer n2k false
+            consumer.Invoke(n2k, false)
             symmetricDiffWithStacks comparer consumer l1 t2
+
+        // Check for two pointer-equivalent sub-trees
         | (h1 :: t1), (h2 :: t2) when Object.ReferenceEquals(h1,h2) -> symmetricDiffWithStacks comparer consumer t1 t2
+        
         | (SetEmpty  _ :: t1), t2 -> symmetricDiffWithStacks comparer consumer t1 t2
+        
         | t1, (SetEmpty :: t2) -> symmetricDiffWithStacks comparer consumer t1 t2
+        
         | (SetOne n1k :: t1), (SetOne n2k :: t2) -> 
              let c = comparer.Compare(n1k, n2k) 
              if c = 0 then 
                  symmetricDiffWithStacks comparer consumer t1 t2
              elif c < 0 then 
-                 consumer n1k true
+                 consumer.Invoke(n1k, true)
                  symmetricDiffWithStacks comparer consumer t1 l2
              else 
-                 consumer n2k false
+                 consumer.Invoke(n2k, false)
                  symmetricDiffWithStacks comparer consumer l1 t2
 
+        // collapse l1 - allocating!
         | (SetNode (n1k, n1l, n1r, _) :: t1), _ -> 
-             // collapse l1 - allocating!
              symmetricDiffWithStacks comparer consumer (n1l :: SetOne n1k :: n1r :: t1) l2
+        
+        // collapse l2 - allocating!
         | _ , (SetNode (n2k, n2l, n2r, _) :: t2) -> 
-             // collapse l2 - allocating!
              symmetricDiffWithStacks comparer consumer l1 (n2l :: SetOne n2k :: n2r :: t2)
 
     let symmetricDiffWith comparer s1 s2 consumer = 
-        if Object.ReferenceEquals(s1,s2) then () else
-        symmetricDiffWithStacks comparer consumer [s1] [s2]
+        if Object.ReferenceEquals(s1,s2) then 
+            () 
+        else
+            let consumer = OptimizedClosures.FSharpFunc<_, _, _>.Adapt consumer
+            symmetricDiffWithStacks comparer consumer [s1] [s2]
 
     let choose s =
         minimumElement s
