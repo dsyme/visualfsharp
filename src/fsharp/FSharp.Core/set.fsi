@@ -83,7 +83,6 @@ namespace Microsoft.FSharp.Collections
         /// <returns>True if this set is a proper superset of <c>otherSet</c>.</returns>
         member IsProperSupersetOf: otherSet:Set<'T> -> bool
 
-
         /// <summary>Returns the lowest element in the set according to the ordering being used for the set.</summary>
         member MinimumElement: 'T
 
@@ -95,8 +94,8 @@ namespace Microsoft.FSharp.Collections
         interface System.Collections.IEnumerable 
         interface System.IComparable
         interface IReadOnlyCollection<'T>
-        override Equals : obj -> bool
 
+        override Equals : obj -> bool
 
 namespace Microsoft.FSharp.Collections
         
@@ -166,7 +165,6 @@ namespace Microsoft.FSharp.Collections
         /// <returns>True if <c>set1</c> is a proper superset of <c>set2</c>.</returns>
         [<CompiledName("IsProperSuperset")>]
         val isProperSuperset: set1: Set<'T> -> set2:Set<'T> -> bool
-
 
         /// <summary>Returns the number of elements in the set. Same as <c>size</c>.</summary>
         /// <param name="set">The input set.</param>
@@ -334,3 +332,19 @@ namespace Microsoft.FSharp.Collections
         /// <returns>The set with the elements of <c>set2</c> removed from <c>set1</c>.</returns>
         [<CompiledName("Difference")>]
         val difference: set1:Set<'T> -> set2:Set<'T> -> Set<'T>
+
+        /// <summary>Iterates the two sets returning a sequence of elements in one set but not the other.</summary>
+        /// <param name="set1">The first input set.</param>
+        /// <param name="set2">The second input set.</param>
+        /// <returns>A sequence of elements paired with boolean values, true indicating the element is in the first but not the second, and vice-versa.</returns>
+        [<CompiledName("SymmetricDiff")>]
+        val symmetricDiff: set1:Set<'T> -> set2:Set<'T> -> seq<'T * bool>
+
+        /// <summary>Iterates the two sets and calls the given function for elements in one set but not the other.</summary>
+        /// <param name="set1">The first input set.</param>
+        /// <param name="set2">The second input set.</param>
+        /// <param name="consumer">Called each time an element occurs in one set but not the other, true indicating the element is in the first but not the second, and vice-versa.</param>
+        /// <returns>Nothing.</returns>
+        [<CompiledName("SymmetricDiffWith")>]
+        val symmetricDiffWith: set1:Set<'T> -> set2:Set<'T> -> consumer: ('T -> bool -> unit) -> unit
+

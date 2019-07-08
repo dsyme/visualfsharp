@@ -387,8 +387,11 @@ module internal SetTree =
     // Imperative left-to-right iterators.
     [<NoEquality; NoComparison>]
     type SetIterator<'T> when 'T: comparison  = 
-        { mutable stack: SetTree<'T> list; // invariant: always collapseLHS result 
-          mutable started: bool           // true when MoveNext has been called 
+        { /// invariant: always collapseLHS result 
+          mutable stack: SetTree<'T> list
+
+          /// true when MoveNext has been called 
+          mutable started: bool          
         }
 
     // collapseLHS:
@@ -473,6 +476,18 @@ module internal SetTree =
         | SetEmpty, _ -> -1
         | _, SetEmpty -> 1
         | _ -> compareStacks comparer [s1] [s2]
+
+    let symmetricDiff comparer s1 s2 = 
+        seq { 
+           match s1, s2 with 
+           | SetEmpty, SetEmpty -> ()
+           | _ -> failwith "tbd"
+        }
+
+    let symmetricDiffWith comparer s1 s2 consumer = 
+        match s1, s2 with 
+        | SetEmpty, SetEmpty -> ()
+        | _ -> failwith "tbd"
 
     let choose s =
         minimumElement s
@@ -876,5 +891,10 @@ module Set =
     [<CompiledName("MaxElement")>]
     let maxElement (set: Set<'T>) = set.MaximumElement
 
+    [<CompiledName("SymmetricDiff")>]
+    let symmetricDiff (set1:Set<'T>) (set2: Set<'T>) = SetTree.symmetricDiff set1.Comparer set1.Tree set2.Tree
+
+    [<CompiledName("SymmetricDiffWith")>]
+    let symmetricDiffWith (set1:Set<'T>) (set2: Set<'T>) consumer = SetTree.symmetricDiffWith set1.Comparer set1.Tree set2.Tree consumer
 
 
