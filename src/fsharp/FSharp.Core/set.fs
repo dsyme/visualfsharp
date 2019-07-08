@@ -489,12 +489,12 @@ let symmetricDiff comparer s1 s2 =
     let rec symmetricDiffWithStacks (comparer: IComparer<'T>) consumer l1 l2 =
         match l1, l2 with 
         | [], [] ->  ()
+        | (SetOne n1k :: t1), [] -> 
+            consumer n1k true
+            symmetricDiffWithStacks comparer consumer t1 l2
         | [], (SetOne n2k :: t2) -> 
             consumer n2k false
             symmetricDiffWithStacks comparer consumer l1 t2
-        | (SetOne n1k :: t1), [] -> 
-            consumer n1k false
-            symmetricDiffWithStacks comparer consumer t1 l2
         | (h1 :: t1), (h2 :: t2) when Object.ReferenceEquals(h1,h2) -> symmetricDiffWithStacks comparer consumer t1 t2
         | (SetEmpty  _ :: t1), t2 -> symmetricDiffWithStacks comparer consumer t1 t2
         | t1, (SetEmpty :: t2) -> symmetricDiffWithStacks comparer consumer t1 t2
