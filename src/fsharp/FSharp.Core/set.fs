@@ -546,24 +546,10 @@ let symmetricDiff comparer s1 s2 =
                                    stack2.Push (SetOne n2k)
                                    stack2.Push n2l
                         else
-                            match h1 with 
-                            | SetOne n1k  -> 
-                                consumer.Invoke(n1k, true)
-                            | SetEmpty -> ()
-                            // collapse l1 - allocating!
-                            | SetNode (n1k, n1l, n1r, _) -> 
-                               stack1.Push n1r
-                               stack1.Push (SetOne n1k)
-                               stack1.Push n1l
+                            h1 |> iter (fun x -> consumer.Invoke(x, true))
                 elif has2 then
-                    match stack2.Pop() with 
-                    | SetOne n2k  -> 
-                        consumer.Invoke(n2k, false)
-                    | SetEmpty -> ()
-                    | SetNode (n2k, n2l, n2r, _) -> 
-                        stack2.Push n2r
-                        stack2.Push (SetOne n2k)
-                        stack2.Push n2l
+                    let h2 = stack2.Pop()
+                    h2 |> iter (fun x -> consumer.Invoke(x, false))
                 else 
                     fin <- true
 
