@@ -264,8 +264,6 @@ let main argv = 0"""
     let CompileExeAndRun (source: string) =
         CompileExeAndRunWithOptions [||] source
 
-    let CompileExeAndRun source = CompileExeAndRunWithOptions [| |] source
-
     let CompileLibraryAndVerifyILWithOptions options (source: string) (f: ILVerifier -> unit) =
         compile false options source (fun (errors, outputFilePath) ->
             let errors =
