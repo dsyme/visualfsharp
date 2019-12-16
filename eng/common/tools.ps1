@@ -49,8 +49,6 @@
 # An array of names of processes to stop on script exit if prepareMachine is true.
 $processesToStopOnExit = if (Test-Path variable:processesToStopOnExit) { $processesToStopOnExit } else { @("msbuild", "dotnet", "vbcscompiler") }
 
-$disableConfigureToolsetImport = if (Test-Path variable:disableConfigureToolsetImport) { $disableConfigureToolsetImport } else { $null }
-
 set-strictmode -version 2.0
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -98,7 +96,7 @@ function Exec-Process([string]$command, [string]$commandArgs) {
   }
 }
 
-function InitializeDotNetCli([bool]$install) {
+function InitializeDotNetCli([bool]$install, [bool]$createSdkLocationFile) {
   if (Test-Path variable:global:_DotNetInstallDir) {
     return $global:_DotNetInstallDir
   }
@@ -146,6 +144,22 @@ function InitializeDotNetCli([bool]$install) {
     }
 
     $env:DOTNET_INSTALL_DIR = $dotnetRoot
+
+    if ($createSdkLocationFile) {
+      # Create a temporary file under the toolset dir and rename it to sdk.txt to avoid races.
+      do { 
+        $sdkCacheFileTemp = Join-Path $ToolsetDir $([System.IO.Path]::GetRandomFileName())
+      } 
+      until (!(Test-Path $sdkCacheFileTemp))
+      Set-Content -Path $sdkCacheFileTemp -Value $dotnetRoot
+
+      try {
+        Rename-Item -Force -Path $sdkCacheFileTemp 'sdk.txt'
+      } catch {
+        # Somebody beat us
+        Remove-Item -Path $sdkCacheFileTemp
+      }
+    }
   }
 
   # Add dotnet to PATH. This prevents any bare invocation of dotnet in custom
@@ -155,6 +169,15 @@ function InitializeDotNetCli([bool]$install) {
 
   # Make Sure that our bootstrapped dotnet cli is available in future steps of the Azure Pipelines build
   Write-PipelinePrependPath -Path $dotnetRoot
+
+  # Work around issues with Azure Artifacts credential provider
+  # https://github.com/dotnet/arcade/issues/3932
+  if ($ci) {
+    $env:NUGET_PLUGIN_HANDSHAKE_TIMEOUT_IN_SECONDS = 20
+    $env:NUGET_PLUGIN_REQUEST_TIMEOUT_IN_SECONDS = 20
+    Write-PipelineSetVariable -Name 'NUGET_PLUGIN_HANDSHAKE_TIMEOUT_IN_SECONDS' -Value '20'
+    Write-PipelineSetVariable -Name 'NUGET_PLUGIN_REQUEST_TIMEOUT_IN_SECONDS' -Value '20'
+  }
 
   Write-PipelineSetVariable -Name 'DOTNET_MULTILEVEL_LOOKUP' -Value '0'
   Write-PipelineSetVariable -Name 'DOTNET_SKIP_FIRST_TIME_EXPERIENCE' -Value '1'
@@ -177,14 +200,7 @@ function InstallDotNetSdk([string] $dotnetRoot, [string] $version, [string] $arc
   InstallDotNet $dotnetRoot $version $architecture
 }
 
-function InstallDotNet([string] $dotnetRoot, 
-  [string] $version, 
-  [string] $architecture = "", 
-  [string] $runtime = "", 
-  [bool] $skipNonVersionedFiles = $false, 
-  [string] $runtimeSourceFeed = "", 
-  [string] $runtimeSourceFeedKey = "") {
-
+function InstallDotNet([string] $dotnetRoot, [string] $version, [string] $architecture = "", [string] $runtime = "", [bool] $skipNonVersionedFiles = $false) {
   $installScript = GetDotNetInstallScript $dotnetRoot
   $installParameters = @{
     Version = $version
@@ -199,7 +215,7 @@ function InstallDotNet([string] $dotnetRoot,
     & $installScript @installParameters
   }
   catch {
-    Write-PipelineTelemetryError -Category "InitializeToolset" -Message "Failed to install dotnet runtime '$runtime' from public location."
+    Write-PipelineTelemetryError -Category 'InitializeToolset' -Message "Failed to install dotnet runtime '$runtime' from public location."
 
     # Only the runtime can be installed from a custom [private] location.
     if ($runtime -and ($runtimeSourceFeed -or $runtimeSourceFeedKey)) {
@@ -215,8 +231,11 @@ function InstallDotNet([string] $dotnetRoot,
         & $installScript @installParameters
       }
       catch {
-        Write-PipelineTelemetryError -Category "InitializeToolset" -Message "Failed to install dotnet runtime '$runtime' from custom location '$runtimeSourceFeed'."
+        Write-PipelineTelemetryError -Category 'InitializeToolset' -Message "Failed to install dotnet runtime '$runtime' from custom location '$runtimeSourceFeed'."
+        ExitWithExitCode 1
       }
+    } else {
+      ExitWithExitCode 1
     }
   }
 }
@@ -274,8 +293,11 @@ function InitializeVisualStudioMSBuild([bool]$install, [object]$vsRequirements =
       $vsMajorVersion = $vsMinVersion.Major
       $xcopyMSBuildVersion = "$vsMajorVersion.$($vsMinVersion.Minor).0-alpha"
     }
-
-    $vsInstallDir = InitializeXCopyMSBuild $xcopyMSBuildVersion $install
+    
+    $vsInstallDir = $null
+    if ($xcopyMSBuildVersion.Trim() -ine "none") {
+        $vsInstallDir = InitializeXCopyMSBuild $xcopyMSBuildVersion $install
+    }
     if ($vsInstallDir -eq $null) {
       throw "Unable to find Visual Studio that has required version and components installed"
     }
@@ -446,7 +468,7 @@ function GetSdkTaskProject([string]$taskName) {
 }
 
 function InitializeNativeTools() {
-  if (-Not (Test-Path variable:DisableNativeToolsetInstalls) -And (Get-Member -InputObject $GlobalJson -Name "native-tools")) {
+  if (Get-Member -InputObject $GlobalJson -Name "native-tools") {
     $nativeArgs= @{}
     if ($ci) {
       $nativeArgs = @{
@@ -523,11 +545,6 @@ function MSBuild() {
     # https://github.com/dotnet/arcade/issues/3932
     if ($ci -and $buildTool.Tool -eq "dotnet") {
       dotnet nuget locals http-cache -c
-
-      $env:NUGET_PLUGIN_HANDSHAKE_TIMEOUT_IN_SECONDS = 20
-      $env:NUGET_PLUGIN_REQUEST_TIMEOUT_IN_SECONDS = 20
-      Write-PipelineSetVariable -Name 'NUGET_PLUGIN_HANDSHAKE_TIMEOUT_IN_SECONDS' -Value '20'
-      Write-PipelineSetVariable -Name 'NUGET_PLUGIN_REQUEST_TIMEOUT_IN_SECONDS' -Value '20'
     }
 
     $toolsetBuildProject = InitializeToolset
@@ -627,12 +644,3 @@ Write-PipelineSetVariable -Name 'Artifacts.Toolset' -Value $ToolsetDir
 Write-PipelineSetVariable -Name 'Artifacts.Log' -Value $LogDir
 Write-PipelineSetVariable -Name 'TEMP' -Value $TempDir
 Write-PipelineSetVariable -Name 'TMP' -Value $TempDir
-
-# Import custom tools configuration, if present in the repo.
-# Note: Import in global scope so that the script set top-level variables without qualification.
-if (!$disableConfigureToolsetImport) {
-  $configureToolsetScript = Join-Path $EngRoot "configure-toolset.ps1"
-  if (Test-Path $configureToolsetScript) {
-      . $configureToolsetScript
-  }
-}
