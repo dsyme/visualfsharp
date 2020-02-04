@@ -14,33 +14,48 @@ type internal HashMultiMap<'Key,'Value>(n: int, hashEq: IEqualityComparer<'Key>)
 
     let rest = Dictionary<_,_>(3,hashEq)
  
+    let getRest key =
+        match rest.TryGetValue key with
+        | true, res -> res
+        | _ -> []
+
     new (hashEq : IEqualityComparer<'Key>) = HashMultiMap<'Key,'Value>(11, hashEq)
 
     new (seq : seq<'Key * 'Value>, hashEq : IEqualityComparer<'Key>) as x = 
         new HashMultiMap<'Key,'Value>(11, hashEq)
         then seq |> Seq.iter (fun (k,v) -> x.Add(k,v))
 
-    member x.GetRest(k) =
-        match rest.TryGetValue k with
-        | true, res -> res
-        | _ -> []
-
-    member x.Add(y,z) = 
+    member __.Add(y,z) = 
         match firstEntries.TryGetValue y with
         | true, res ->
-            rest.[y] <- res :: x.GetRest(y)
+            rest.[y] <- res :: getRest y
         | _ -> ()
         firstEntries.[y] <- z
 
-    member x.Clear() = 
+    member __.Clear() = 
          firstEntries.Clear()
          rest.Clear()
 
-    member x.FirstEntries = firstEntries
+    member __.RemoveAll key = 
+         firstEntries.Remove key |> ignore
+         rest.Remove key |> ignore
 
-    member x.Rest = rest
+    member t.SetAll(key, values) = 
+         match values with 
+         | [] -> 
+             t.RemoveAll key
+         | [h] -> 
+             firstEntries.[key] <- h
+             rest.Remove key |> ignore
+         | h::t -> 
+             firstEntries.[key] <- h
+             rest.[key] <- t
 
-    member x.Copy() = 
+    member __.FirstEntries = firstEntries
+
+    member __.Rest = rest
+
+    member __.Copy() = 
         let res = HashMultiMap<'Key,'Value>(firstEntries.Count,firstEntries.Comparer)
         for kvp in firstEntries do 
              res.FirstEntries.Add(kvp.Key,kvp.Value)
@@ -50,79 +65,77 @@ type internal HashMultiMap<'Key,'Value>(n: int, hashEq: IEqualityComparer<'Key>)
         res
 
     member x.Item 
-        with get(y : 'Key) = 
-            match firstEntries.TryGetValue y with
+        with get (key : 'Key) = 
+            match firstEntries.TryGetValue key with
             | true, res -> res
             | _ -> raise (KeyNotFoundException("The item was not found in collection"))
-        and set (y:'Key) (z:'Value) = 
-            x.Replace(y,z)
+        and set (key:'Key) (z:'Value) = 
+            x.ReplaceLatest(key, z)
 
-    member x.FindAll(y) = 
-        match firstEntries.TryGetValue y with
-        | true, res -> res :: x.GetRest(y)
+    member __.FindAll key = 
+        match firstEntries.TryGetValue key with
+        | true, res -> res :: getRest key
         | _ -> []
 
-    member x.Fold f acc = 
+    member __.Fold f acc = 
         let mutable res = acc
         for kvp in firstEntries do
             res <- f kvp.Key kvp.Value res
-            match x.GetRest(kvp.Key) with
+            match getRest kvp.Key with
             | [] -> ()
             | rest -> 
                 for z in rest do
                     res <- f kvp.Key z res
         res
 
-    member x.Iterate(f) =  
+    member __.Iterate(f) =  
         for kvp in firstEntries do
             f kvp.Key kvp.Value
-            match x.GetRest(kvp.Key) with
+            match getRest kvp.Key with
             | [] -> ()
             | rest -> 
                 for z in rest do
                     f kvp.Key z
 
-    member x.Contains(y) = firstEntries.ContainsKey(y)
+    member __.ContainsKey key = firstEntries.ContainsKey key
 
-    member x.ContainsKey(y) = firstEntries.ContainsKey(y)
-
-    member x.Remove(y) = 
-        match firstEntries.TryGetValue y with
+    member __.RemoveLatest key = 
+        match firstEntries.TryGetValue key with
         // NOTE: If not ok then nothing to remove - nop
         | true, _res ->
             // We drop the FirstEntry. Here we compute the new FirstEntry and residue MoreEntries
-            match rest.TryGetValue y with
+            match rest.TryGetValue key with
             | true, res ->
                 match res with 
                 | [h] -> 
-                    firstEntries.[y] <- h; 
-                    rest.Remove(y) |> ignore
+                    firstEntries.[key] <- h; 
+                    rest.Remove(key) |> ignore
                 | (h :: t) -> 
-                    firstEntries.[y] <- h
-                    rest.[y] <- t
+                    firstEntries.[key] <- h
+                    rest.[key] <- t
                 | _ -> 
                     ()
             | _ ->
-                firstEntries.Remove(y) |> ignore 
+                firstEntries.Remove(key) |> ignore 
         | _ -> ()
 
-    member x.Replace(y,z) = 
-        firstEntries.[y] <- z
+    member __.ReplaceLatest(key, z) = 
+        firstEntries.[key] <- z
 
-    member x.TryFind(y) =
-        match firstEntries.TryGetValue y with
+    member __.TryFind key =
+        match firstEntries.TryGetValue key with
         | true, res -> Some res
         | _ -> None
 
-    member x.Count = firstEntries.Count
+    member __.Count = firstEntries.Count
 
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
 
-        member s.GetEnumerator() = 
+        member __.GetEnumerator() = 
             let elems = List<_>(firstEntries.Count + rest.Count)
             for kvp in firstEntries do
                 elems.Add(kvp)
-                for z in s.GetRest(kvp.Key) do
+                for z in getRest kvp.Key do
                    elems.Add(KeyValuePair(kvp.Key, z))
             (elems.GetEnumerator() :> IEnumerator<_>)
 
@@ -146,9 +159,10 @@ type internal HashMultiMap<'Key,'Value>(n: int, hashEq: IEqualityComparer<'Key>)
 
         member s.TryGetValue(k,r) = match s.TryFind k with Some v-> (r <- v; true) | _ -> false
 
-        member s.Remove(k:'Key) = 
-            let res = s.ContainsKey(k) in 
-            s.Remove(k); res
+        member s.Remove(key:'Key) =
+            let res = s.ContainsKey key
+            s.RemoveLatest key
+            res
 
     interface ICollection<KeyValuePair<'Key, 'Value>> with 
 
@@ -160,7 +174,7 @@ type internal HashMultiMap<'Key,'Value>(n: int, hashEq: IEqualityComparer<'Key>)
             match s.TryFind x.Key with
             | Some v -> 
                 if Unchecked.equals v x.Value then
-                    s.Remove(x.Key)
+                    s.RemoveLatest x.Key
                 true
             | _ -> false
 

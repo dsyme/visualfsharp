@@ -1304,16 +1304,33 @@ and SolveMemberConstraint (csenv: ConstraintSolverEnv) ignoreUnresolvedOverload 
         match tys, traitObjAndArgTys with 
         | [ty], (h :: _) -> do! SolveTypeEqualsTypeKeepAbbrevs csenv ndeep m2 trace h ty 
         | _ -> do! ErrorD (ConstraintSolverError(FSComp.SR.csExpectedArguments(), m, m2))
+
     // Trait calls are only supported on pseudo type (variables) 
     for e in tys do
         do! SolveTypStaticReq csenv trace HeadTypeStaticReq e
     
     let argtys = if memFlags.IsInstance then List.tail traitObjAndArgTys else traitObjAndArgTys 
 
-    let minfos = GetRelevantMethodsForTrait csenv permitWeakResolution nm traitInfo
-        
     let! res = 
      trackErrors {
+
+      let frees = GetFreeTyparsOfMemberConstraint csenv traitInfo
+
+      // Determine if we should actually do resolution for this trait.  If the trait is not yet ready
+      // for solution then we will ignore the result anyway and reapply the constraint
+      let doResolution = 
+         not (g.langVersion.SupportsFeature LanguageFeature.ExtensionConstraintSolutions) ||
+         (permitWeakResolution.PerformWeakBuiltInResolution && BakedInTraitConstraintNames.Contains(nm)) ||
+         MemberConstraintIsReadyForStrongResolution csenv traitInfo ||
+         (permitWeakResolution.PerformWeakOverloadResolution && MemberConstraintIsReadyForWeakOverloadResolution csenv traitInfo) ||
+         isNil frees
+
+      let minfos =
+          if doResolution then
+              GetRelevantMethodsForTrait csenv permitWeakResolution nm traitInfo
+          else
+              []
+        
       match tys, memFlags.IsInstance, nm, argtys with 
       | _, false, ("op_Division" | "op_Multiply"), [argty1;argty2]
           when 
@@ -1514,6 +1531,7 @@ and SolveMemberConstraint (csenv: ConstraintSolverEnv) ignoreUnresolvedOverload 
 
           // First look for a solution by a record property
           let recdPropSearch = 
+            if doResolution then 
               let isGetProp = nm.StartsWithOrdinal("get_") 
               let isSetProp = nm.StartsWithOrdinal("set_") 
               if argtys.IsEmpty && isGetProp || isSetProp then 
@@ -1534,8 +1552,11 @@ and SolveMemberConstraint (csenv: ConstraintSolverEnv) ignoreUnresolvedOverload 
                   | _ -> None
               else
                   None
+            else
+                None
 
           let anonRecdPropSearch = 
+            if doResolution then
               let isGetProp = nm.StartsWith "get_" 
               if isGetProp && memFlags.IsInstance  then 
                   let propName = nm.[4..]
@@ -1549,6 +1570,8 @@ and SolveMemberConstraint (csenv: ConstraintSolverEnv) ignoreUnresolvedOverload 
                   | _ -> None
               else
                   None
+            else
+                None
 
           // Now check if there are no feasible solutions at all
           match minfos, recdPropSearch, anonRecdPropSearch with 
@@ -1625,15 +1648,12 @@ and SolveMemberConstraint (csenv: ConstraintSolverEnv) ignoreUnresolvedOverload 
                       return TTraitSolved (minfo, calledMeth.CalledTyArgs)
                           
               | _ -> 
-                  let support = GetSupportOfMemberConstraint csenv traitInfo
-                  let frees = GetFreeTyparsOfMemberConstraint csenv traitInfo
 
                   // If there's nothing left to learn then raise the errors.
-                  // Note: we should likely call MemberConstraintIsReadyForResolution here when permitWeakResolution=false but for stability
-                  // reasons we use the more restrictive isNil frees.
-                  if (permitWeakResolution.PerformWeakOverloadResolution g && MemberConstraintIsReadyForWeakResolution csenv traitInfo) || isNil frees then 
+                  if (permitWeakResolution.PerformWeakOverloadResolution g && MemberConstraintIsReadyForWeakOverloadResolution csenv traitInfo) || isNil frees then 
                       do! errors  
                   else
+                      let support = GetSupportOfMemberConstraint csenv traitInfo
                       do! AddMemberConstraint csenv ndeep m2 trace traitInfo support frees
                   
                   if g.langVersion.SupportsFeature LanguageFeature.ExtensionConstraintSolutions then 
@@ -1795,7 +1815,7 @@ and SupportOfMemberConstraintIsFullySolved (csenv: ConstraintSolverEnv) (TTrait(
 and GetFreeTyparsOfMemberConstraint (csenv: ConstraintSolverEnv) (TTrait(tys, _, _, argtys, rty, _, _, _)) =
     freeInTypesLeftToRightSkippingConstraints csenv.g (tys@argtys@ Option.toList rty)
 
-and MemberConstraintIsReadyForWeakResolution csenv traitInfo =
+and MemberConstraintIsReadyForWeakOverloadResolution csenv traitInfo =
    SupportOfMemberConstraintIsFullySolved csenv traitInfo
 
 and MemberConstraintIsReadyForStrongResolution csenv traitInfo =
@@ -1830,16 +1850,36 @@ and GetTraitFreshner (g: TcGlobals) (ad: AccessorDomain) (nenv: NameResolutionEn
     else
         [], (AccessorDomain.AccessibleFromEverywhere :> TraitAccessorDomain)
 
+// Determine if we actually need to re-solve a member constraint.
+and ReSolveMemberConstraint (csenv:ConstraintSolverEnv) (permitWeakResolution: PermitWeakResolution) (traitInfo: TraitConstraintInfo) =
+    traitInfo.Solution.IsNone && 
+
+    let frees = GetFreeTyparsOfMemberConstraint csenv traitInfo
+
+    // Only enable this with fixed extension constraints
+    not (csenv.g.langVersion.SupportsFeature LanguageFeature.ExtensionConstraintSolutions) ||
+    // We must re-solve all baked in constraints when doing weak resolution
+    (permitWeakResolution.PerformWeakBuiltInResolution && BakedInTraitConstraintNames.Contains(traitInfo.MemberName)) ||
+    // We must re-solve all constraints ready for strong resolution 
+    MemberConstraintIsReadyForStrongResolution csenv traitInfo ||
+    // We must re-solve all constraints ready for strong resolution 
+    (permitWeakResolution.PerformWeakOverloadResolution && MemberConstraintIsReadyForWeakOverloadResolution csenv traitInfo) ||
+    isNil frees
+
 and SolveRelevantMemberConstraintsForTypar (csenv:ConstraintSolverEnv) ndeep (permitWeakResolution: PermitWeakResolution) (trace:OptionalTrace) tp =
     let cxst = csenv.SolverState.ExtraCxs
     let tpn = tp.Stamp
     let cxs = cxst.FindAll tpn
-    if isNil cxs then ResultD false else
     
-    trace.Exec (fun () -> cxs |> List.iter (fun _ -> cxst.Remove tpn)) (fun () -> cxs |> List.iter (fun cx -> cxst.Add(tpn, cx)))
-    assert (isNil (cxst.FindAll tpn)) 
+    // Only re-solve the ones that need re-solving
+    let cxsToReSolve, cxsToSkip = cxs |> List.partition (fst >> ReSolveMemberConstraint csenv permitWeakResolution)
+    printfn "resolving %d, skipping %d" cxsToReSolve.Length cxsToSkip.Length
+    if isNil cxsToReSolve then ResultD false else
+    
+    // Clear the constraints from the ExtraCxs table
+    trace.Exec (fun () -> cxst.SetAll (tpn, cxsToSkip)) (fun () -> cxst.SetAll (tpn, cxs))
 
-    cxs 
+    cxsToReSolve 
     |> AtLeastOneD (fun (traitInfo, m2) -> 
         let csenv = { csenv with m = m2 }
         SolveMemberConstraint csenv true permitWeakResolution (ndeep+1) m2 trace traitInfo)
@@ -1864,7 +1904,7 @@ and AddMemberConstraint (csenv: ConstraintSolverEnv) ndeep m2 (trace: OptionalTr
 
         // check the constraint is not already listed for this type variable
         if not (cxs |> List.exists (fun (traitInfo2, _valRefs) -> traitsAEquiv g aenv traitInfo traitInfo2)) then 
-            trace.Exec (fun () -> csenv.SolverState.ExtraCxs.Add (tpn, (traitInfo, m2))) (fun () -> csenv.SolverState.ExtraCxs.Remove tpn)
+            trace.Exec (fun () -> cxst.Add (tpn, (traitInfo, m2))) (fun () -> cxst.RemoveLatest tpn)
     )
 
     // Associate the constraint with each type variable in the support, so if the type variable
@@ -2914,8 +2954,8 @@ let EliminateConstraintsForGeneralizedTypars denv css m (trace: OptionalTrace) (
         let cxs = cxst.FindAll tpn
         for cx in cxs do 
             trace.Exec
-                (fun () -> cxst.Remove tpn)
-                (fun () -> (csenv.SolverState.ExtraCxs.Add (tpn, cx)))
+                (fun () -> cxst.RemoveLatest tpn)
+                (fun () -> cxst.Add (tpn, cx))
 
 
 //-------------------------------------------------------------------------
