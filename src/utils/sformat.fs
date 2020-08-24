@@ -86,16 +86,28 @@ type Joint =
 /// If either juxtaposition flag is true, then no space between words.
 [<NoEquality; NoComparison>]
 type Layout =
+
+    /// An object leaf node
     | ObjLeaf of juxtLeft: bool * object: obj * juxtRight: bool
+
+    /// A leaf node
     | Leaf of juxtLeft: bool * text: TaggedText * justRight: bool
+
+    /// A node pair with a potential break
     | Node of leftLayout: Layout * rightLayout: Layout * joint: Joint
+
+    /// A special set of nodes where we want even breaking over a list of nodes if any of them need to break
+    | BreakableNodes of layouts: Layout[]
+
+    /// An attributed node
     | Attr of text: string * attributes: (string * string) list * layout: Layout
 
     member layout.JuxtapositionLeft =
         match layout with
         | ObjLeaf (jl, _, _) -> jl
         | Leaf (jl, _, _) -> jl
-        | Node (left, _, _) -> left.JuxtapositionLeft
+        | Node (l, _, _) -> l.JuxtapositionLeft
+        | BreakableNodes nodes -> nodes.[0].JuxtapositionLeft
         | Attr (_, _, subLayout) -> subLayout.JuxtapositionLeft
 
     static member JuxtapositionMiddle (left: Layout, right: Layout) =
@@ -105,7 +117,8 @@ type Layout =
         match layout with
         | ObjLeaf (_, _, jr) -> jr
         | Leaf (_, _, jr) -> jr
-        | Node (_, right, _) -> right.JuxtapositionRight
+        | Node (_, r, _) -> r.JuxtapositionRight
+        | BreakableNodes nodes -> (Array.last nodes).JuxtapositionRight
         | Attr (_, _, subLayout) -> subLayout.JuxtapositionRight
 
 [<NoEquality; NoComparison>]
@@ -205,8 +218,8 @@ module TaggedTextOps =
 module LayoutOps = 
     open TaggedTextOps
 
-    let mkNode l r joint =
-        Node(l, r, joint)
+    let mkNode left right joint =
+        Node(left, right, joint)
 
     // constructors
     let objL (value:obj) = 
@@ -287,9 +300,6 @@ module LayoutOps =
         match value with 
         | None -> wordL (tagUnionCase "None")
         | Some x -> wordL (tagUnionCase "Some") -- (selector x)
-
-    let listL selector value =
-        leftL Literals.leftBracket ^^ sepListL (sepL Literals.semicolon) (List.map selector value) ^^ rightL Literals.rightBracket
 
     let squareBracketL layout =
         leftL Literals.leftBracket ^^ layout ^^ rightL Literals.rightBracket    
@@ -503,144 +513,175 @@ module Display =
 
     let catchExn f = try Choice1Of2 (f ()) with e -> Choice2Of2 e
 
-    // An implementation of break stack.
-    // Uses mutable state, relying on linear threading of the state.
-
-    [<NoEquality; NoComparison>]
-    type Breaks = 
-        Breaks of
-            /// pos of next free slot 
-            nextFreeSlot: int *     
-            /// pos of next possible "outer" break - OR - outer=next if none possible 
-            nextOuterBreak: int *     
-            /// stack of savings, -ve means it has been broken 
-            savingsStack: int[]
-
-    // next  is next slot to push into - aka size of current occupied stack.  
-    // outer counts up from 0, and is next slot to break if break forced.
-    // - if all breaks forced, then outer=next.
-    // - popping under these conditions needs to reduce outer and next.
-        
-
-    //let dumpBreaks prefix (Breaks(next,outer,stack)) = ()
-    //   printf "%s: next=%d outer=%d stack.Length=%d\n" prefix next outer stack.Length;
-    //   stdout.Flush() 
-             
-    let chunkN = 400      
-    let breaks0 () = Breaks(0, 0, Array.create chunkN 0)
-
-    let pushBreak saving (Breaks(next, outer, stack)) =
-        //dumpBreaks "pushBreak" (next, outer, stack);
-        let stack = 
-            if next = stack.Length then
-                Array.init (next + chunkN) (fun i -> if i < next then stack.[i] else 0) // expand if full 
-            else
-                stack
-           
-        stack.[next] <- saving;
-        Breaks(next+1, outer, stack)
-
-    let popBreak (Breaks(next, outer, stack)) =
-        //dumpBreaks "popBreak" (next, outer, stack);
-        if next=0 then raise (Failure "popBreak: underflow");
-        let topBroke = stack.[next-1] < 0
-        let outer = if outer=next then outer-1 else outer  // if all broken, unwind 
-        let next = next - 1
-        Breaks(next, outer, stack), topBroke
-
-    let forceBreak (Breaks(next, outer, stack)) =
-        //dumpBreaks "forceBreak" (next, outer, stack);
-        if outer=next then
-            // all broken 
-            None
-        else
-            let saving = stack.[outer]
-            stack.[outer] <- -stack.[outer];    
-            let outer = outer+1
-            Some (Breaks(next, outer, stack), saving)
-
     /// fitting
-    let squashToAux (maxWidth, leafFormatter: _ -> TaggedText) layout =
+    type LayoutSquasher(maxWidth, leafFormatter: _ -> TaggedText) =
         let (|ObjToTaggedText|) = leafFormatter
-        if maxWidth <= 0 then layout else 
-        let rec fit breaks (pos, layout) =
-            // breaks = break context, can force to get indentation savings.
+
+        /// Position of next possible "outer" break.
+        /// Counts up from 0, and is next slot to break if break forced.
+        /// If all breaks forced, then outer=savingsStack.Count.
+        let mutable nextOuterBreak = 0
+
+        /// stack of savings, -ve means it has been broken 
+        let mutable savingsStack = ResizeArray<int>()
+
+        let pushBreak saving =
+            //dumpBreaks "pushBreak" (next, outer, stack);
+            savingsStack.Add(saving)
+
+        let popBreak () =
+            //dumpBreaks "popBreak" (next, outer, stack);
+            let next = savingsStack.Count
+            let topBroke = savingsStack.[next-1] < 0
+            if nextOuterBreak = next then
+                nextOuterBreak <- nextOuterBreak-1
+            savingsStack.RemoveAt(next-1) |> ignore
+            topBroke
+
+        let forceBreak () =
+            let next = savingsStack.Count
+            //dumpBreaks "forceBreak" (next, outer, stack);
+            if nextOuterBreak=next then
+                // all broken 
+                None
+            else
+                let outer = nextOuterBreak
+                let saving = savingsStack.[outer]
+                savingsStack.[outer] <- -1
+                nextOuterBreak <- outer+1
+                Some saving
+
+        let rec fit (pos, layout) : _ voption =
             // pos = current position in line
             // layout = to fit
             //------
             // returns:
-            // breaks
             // layout - with breaks put in to fit it.
             // pos    - current pos in line = rightmost position of last line of block.
             // offset - width of last line of block
             // NOTE: offset <= pos -- depending on tabbing of last block
                
-            let breaks, layout, pos, offset =
-                match layout with
-                | Attr (tag, attrs, l) ->
-                    let breaks, layout, pos, offset = fit breaks (pos, l) 
-                    let layout = Attr (tag, attrs, layout) 
-                    breaks, layout, pos, offset
+            match layout with
+            | Attr (tag, attrs, subLayout) ->
+                match fit (pos, subLayout) with 
+                | ValueNone -> ValueNone
+                | ValueSome (subLayoutB, pos, offset) -> 
+                ValueSome (Attr (tag, attrs, subLayoutB) , pos, offset)
 
-                | Leaf (jl, text, jr)
-                | ObjLeaf (jl, ObjToTaggedText text, jr) ->
-                    // save the formatted text from the squash
-                    let layout = Leaf(jl, text, jr) 
-                    let textWidth = length text
-                    let rec fitLeaf breaks pos =
-                        if pos + textWidth <= maxWidth then
-                            breaks, layout, pos + textWidth, textWidth // great, it fits 
-                        else
-                            match forceBreak breaks with
-                            | None -> 
-                                breaks, layout, pos + textWidth, textWidth // tough, no more breaks 
-                            | Some (breaks, saving) -> 
-                                let pos = pos - saving 
-                                fitLeaf breaks pos
-                       
-                    fitLeaf breaks pos
-
-                | Node (l, r, joint) ->
-                    let jm = Layout.JuxtapositionMiddle (l, r)
-                    let mid = if jm then 0 else 1
-                    match joint with
-                    | Unbreakable ->
-                        let breaks, l, pos, offsetl = fit breaks (pos, l)    // fit left 
-                        let pos = pos + mid                              // fit space if juxt says so 
-                        let breaks, r, pos, offsetr = fit breaks (pos, r)    // fit right 
-                        breaks, Node (l, r, Unbreakable), pos, offsetl + mid + offsetr
-
-                    | Broken indent ->
-                        let breaks, l, pos, offsetl = fit breaks (pos, l)    // fit left 
-                        let pos = pos - offsetl + indent                 // broken so - offset left + ident 
-                        let breaks, r, pos, offsetr = fit breaks (pos, r)    // fit right 
-                        breaks, Node (l, r, Broken indent), pos, indent + offsetr
-
-                    | Breakable indent ->
-                        let breaks, l, pos, offsetl = fit breaks (pos, l)    // fit left 
-                        // have a break possibility, with saving 
-                        let saving = offsetl + mid - indent
-                        let pos = pos + mid
-                        if saving>0 then
-                            let breaks = pushBreak saving breaks
-                            let breaks, r, pos, offsetr = fit breaks (pos, r)
-                            let breaks, broken = popBreak breaks
-                            if broken then
-                                breaks, Node (l, r, Broken indent)   , pos, indent + offsetr
+            | Leaf (jl, text, jr)
+            | ObjLeaf (jl, ObjToTaggedText text, jr) ->
+                // save the formatted text from the squash
+                let layoutB = Leaf(jl, text, jr) 
+                let textWidth = length text
+                let rec fitLeaf pos =
+                    if pos + textWidth <= maxWidth then
+                        ValueSome (layoutB, pos + textWidth, textWidth) // great, it fits 
+                    else
+                        match forceBreak () with
+                        | None -> 
+                            // tough, no more breaks 
+                            ValueSome (layoutB, pos + textWidth, textWidth)
+                        | Some saving -> 
+                            // There's an abort break on the stack
+                            if saving = 0 then 
+                                ValueNone
                             else
-                                breaks, Node (l, r, Breakable indent), pos, offsetl + mid + offsetr
+                                let pos = pos - saving 
+                                fitLeaf pos
+                fitLeaf pos
+
+            | Node (l, r, joint) ->
+                let jm = Layout.JuxtapositionMiddle (l, r)
+                let mid = if jm then 0 else 1
+                match joint with
+                | Unbreakable ->
+                    // fit left 
+                    match fit (pos, l) with 
+                    | ValueNone -> ValueNone
+                    | ValueSome (lB, pos, offsetLeft) -> 
+                    
+                    // fit space if juxt says so 
+                    let pos = pos + mid                              
+                    
+                    // fit right
+                    match fit (pos, r) with 
+                    | ValueNone -> ValueNone 
+                    | ValueSome (rB, pos, offsetRight) -> 
+                    
+                    let nodeB = Node (lB, rB, Unbreakable)
+                    ValueSome (nodeB, pos, offsetLeft + mid + offsetRight)
+
+                | Broken indent ->
+                    // fit left 
+                    match fit (pos, l) with 
+                    | ValueNone -> ValueNone
+                    | ValueSome (lB, pos, offsetLeft) -> 
+                    
+                    // broken so - offset left + ident 
+                    let pos = pos - offsetLeft + indent                 
+                    
+                    // fit right
+                    match fit (pos, r) with 
+                    | ValueNone -> ValueNone
+                    | ValueSome (rB, pos, offsetRight) ->
+
+                    let nodeB = Node (lB, rB, Broken indent)
+                    ValueSome (nodeB, pos, indent + offsetRight)
+
+                | Breakable indent ->
+                    // fit left 
+                    match fit (pos, l) with 
+                    | ValueNone -> ValueNone
+                    | ValueSome (lB, pos, offsetLeft) -> 
+
+                    // have a break possibility, with saving 
+                    let saving = offsetLeft + mid - indent
+                    let pos = pos + mid
+                    if saving>0 then
+                        pushBreak saving
+                        match fit (pos, r) with 
+                        | ValueNone -> ValueNone
+                        | ValueSome (rB, pos, offsetRight) -> 
+
+                        let broken = popBreak ()
+                        if broken then
+                            let nodeB = Node (lB, rB, Broken indent)
+                            ValueSome (nodeB, pos, indent + offsetRight)
                         else
-                            // actually no saving so no break 
-                            let breaks, r, pos, offsetr = fit breaks (pos, r)
-                            breaks, Node (l, r, Breakable indent)  , pos, offsetl + mid + offsetr
+                            let nodeB = Node (lB, rB, Breakable indent)
+                            ValueSome (nodeB, pos, offsetLeft + mid + offsetRight)
+                    else
+                        match fit (pos, r) with 
+                        | ValueNone -> ValueNone
+                        | ValueSome (rB, pos, offsetRight) -> 
+                            let nodeB = Node (lB, rB, Breakable indent)
+                            ValueSome (nodeB, pos, offsetLeft + mid + offsetRight)
                
-            //printf "\nDone:     pos=%d offset=%d" pos offset;
-            breaks, layout, pos, offset
+            | BreakableNodes nodes ->
+
+                let rec tryAtChunkSize chunkSize = 
+
+                    let chunks = Array.chunkBySize chunkSize nodes
+
+                    let xs = chunks |> Array.map (fun chunk -> Array.reduce (fun l r -> mkNode l r Unbreakable) chunk)
+                    let ys = Array.reduce (fun l r -> mkNode l r (Broken 0)) xs
+                    // Push a break with saving 0 - if it gets broken we abort and try again
+                    pushBreak 0
+                    match fit (pos, ys) with 
+                    | ValueNone -> 
+                        let _broken = popBreak ()
+                        tryAtChunkSize (chunkSize/3)
+                    | ValueSome (r, pos, offsetRight) -> 
+                        r, pos, offsetRight 
+
+                ValueSome (tryAtChunkSize nodes.Length)
            
-        let breaks = breaks0 ()
-        let pos = 0
-        let _, layout, _, _ = fit breaks (pos, layout)
-        layout
+        member _.Squash(layout) = 
+            if maxWidth <= 0 then layout else 
+            let pos = 0
+            match fit (pos, layout) with 
+            | ValueSome (layoutB, _, _) -> layoutB
+            | ValueNone -> failwith "unexpected aborted layout"
 
     let combine (strs: string list) = String.Concat strs
 
@@ -648,11 +689,11 @@ module Display =
         let push x rstrs = x :: rstrs
         let z0 = [], 0
         let addText (rstrs, i) (text:string) = push text rstrs, i + text.Length
-        let index   (_, i)          = i
+        let index (_, i) = i
         let extract rstrs = combine(List.rev rstrs) 
         let newLine (rstrs, _) n = // \n then spaces... 
             let indent = new String(' ', n)
-            let rstrs = push "\n"   rstrs
+            let rstrs = push "\n" rstrs
             let rstrs = push indent rstrs
             rstrs, n
 
@@ -682,6 +723,15 @@ module Display =
                 let z = addL z pos r
                 z
 
+            | BreakableNodes nodes -> 
+                let z = addL z pos nodes.[0]
+                (z, Array.pairwise nodes) ||> Array.fold (fun z (l, r) -> 
+                    let jm = Layout.JuxtapositionMiddle (l, r)
+                    let z = if jm then z else addText z " "
+                    let pos = index z
+                    let z = addL z pos r
+                    z)
+
             | Attr (_, _, l) ->
                 addL z pos l
            
@@ -693,7 +743,6 @@ module Display =
         let write s = chan.Write(s)
         // z is just current indent 
         let z0 = 0
-        let index i = i
         let addText z text = write text;  (z + length text)
         let newLine _ n = // \n then spaces... 
             let indent = new String(' ', n)
@@ -718,9 +767,15 @@ module Display =
                 let jm = Layout.JuxtapositionMiddle (l, r)
                 let z = addL z pos l
                 let z = if jm then z else addText z Literals.space
-                let pos = index z
-                let z = addL z pos r
+                let z = addL z z r
                 z 
+            | BreakableNodes nodes -> 
+                let z = addL z pos nodes.[0]
+                (z, Array.pairwise nodes) ||> Array.fold (fun z (l, r) -> 
+                    let jm = Layout.JuxtapositionMiddle (l, r)
+                    let z = if jm then z else addText z Literals.space
+                    let z = addL z z r
+                    z)
             | Attr (tag, attrs, l) ->
                 let _ = outAttribute tag attrs true
                 let z = addL z pos l
@@ -1032,8 +1087,9 @@ module Display =
             match constr with 
             | "Cons" -> 
                 let (x,xs) = unpackCons recd
-                let project xs = getListValueInfo bindingFlags xs
-                let itemLs = nestedObjL depthLim Precedence.BracketIfTuple x :: boundedUnfoldL (nestedObjL depthLim Precedence.BracketIfTuple) project stopShort xs (opts.PrintLength - 1)
+                let headL = nestedObjL depthLim Precedence.BracketIfTuple x
+                let tailL = boundedUnfoldL (nestedObjL depthLim Precedence.BracketIfTuple) (getListValueInfo bindingFlags) stopShort xs (opts.PrintLength - 1)
+                let itemLs = headL :: tailL
                 makeListL itemLs
             | _ ->
                 countNodes 1
@@ -1316,14 +1372,16 @@ module Display =
         formatter.Format(ShowAll, x, xty)
 
     let squashTo maxWidth layout = 
-       layout |> squashToAux (maxWidth, leafFormatter FormatOptions.Default)
+        let squasher = LayoutSquasher(maxWidth, leafFormatter FormatOptions.Default)
+        squasher.Squash(layout)
 
-    let squash_layout opts l = 
+    let squash_layout opts layout = 
         // Print width = 0 implies 1D layout, no squash
         if opts.PrintWidth = 0 then 
-            l 
+            layout
         else 
-            l |> squashToAux (opts.PrintWidth,leafFormatter opts)
+            let squasher = LayoutSquasher(opts.PrintWidth, leafFormatter opts)
+            squasher.Squash(layout)
 
     let asTaggedTextWriter (tw: TextWriter) =
         { new TaggedTextWriter with

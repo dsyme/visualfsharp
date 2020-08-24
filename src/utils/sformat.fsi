@@ -101,6 +101,7 @@ namespace Microsoft.FSharp.Text.StructuredPrintfImpl
         | ObjLeaf of juxtLeft: bool * object: obj * juxtRight: bool
         | Leaf of juxtLeft: bool * text: TaggedText * justRight: bool
         | Node of leftLayout: Layout * rightLayout: Layout * joint: Joint
+        | BreakableNodes of layouts: Layout[]
         | Attr of text: string * attributes: (string * string) list * layout: Layout
 
         static member JuxtapositionMiddle: left: Layout * right: Layout -> bool
@@ -263,9 +264,6 @@ namespace Microsoft.FSharp.Text.StructuredPrintfImpl
 
         /// Layout like an F# option.
         val optionL: selector:('T -> Layout) -> value:'T option -> Layout
-
-        /// Layout like an F# list.    
-        val listL  : selector:('T -> Layout) -> value:'T list   -> Layout
 
         /// See tagL
         val tagAttrL: text:string -> maps:(string * string) list -> layout:Layout -> Layout

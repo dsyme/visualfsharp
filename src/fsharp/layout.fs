@@ -258,30 +258,48 @@ type LayoutRenderer<'a, 'b> =
     abstract Finish   : 'b -> 'a
       
 let renderL (rr: LayoutRenderer<_, _>) layout =
+
+    // pos is indent level
     let rec addL z pos i layout k = 
       match layout with
       | ObjLeaf _ -> failwith "ObjLeaf should never appear here"
-        (* pos is tab level *)
-      | Leaf (_, text, _)                 -> 
+
+      | Leaf (_, text, _) -> 
           k(rr.AddText z text, i + text.Text.Length)
+
       | Node (l, r, Broken indent) -> 
-          addL z pos i l <|
-            fun (z, _i) ->
+          addL z pos i l
+            (fun (z, _i) ->
               let z, i = rr.AddBreak z (pos+indent), (pos+indent) 
-              addL z (pos+indent) i r k
-      | Node (l, r, _)             -> 
+              addL z (pos+indent) i r k)
+
+      | Node (l, r, _) -> 
           let jm = Layout.JuxtapositionMiddle (l, r)
-          addL z pos i l <|
-            fun (z, i) ->
+          addL z pos i l
+            (fun (z, i) ->
               let z, i = if jm then z, i else rr.AddText z Literals.space, i+1 
               let pos = i 
-              addL z pos i r k
-      | Attr (tag, attrs, l)                -> 
+              addL z pos i r k)
+
+      | BreakableNodes nodes -> 
+          let f0 = addL z pos i nodes.[0]
+          let fN = 
+              (f0, Array.pairwise nodes) ||> Array.fold (fun f (l,r) -> 
+                (fun k -> 
+                  f (fun (z, i) ->
+                    let jm = Layout.JuxtapositionMiddle (l, r)
+                    let z, i = if jm then z, i else rr.AddText z Literals.space, i+1 
+                    let pos = i 
+                    addL z pos i r k)))
+          fN k
+
+      | Attr (tag, attrs, l) -> 
           let z   = rr.AddTag z (tag, attrs, true) 
-          addL z pos i l <|
-            fun (z, i) ->
+          addL z pos i l 
+            (fun (z, i) ->
               let z   = rr.AddTag z (tag, attrs, false) 
-              k(z, i)
+              k(z, i))
+
     let pos = 0 
     let z, i = rr.Start(), 0 
     let z, _i = addL z pos i layout id
@@ -306,31 +324,29 @@ let taggedTextListR collector =
       member _.AddText z text = collector text; z
       member _.AddBreak rstrs n = collector Literals.lineBreak; collector (tagSpace(spaces n)); rstrs 
       member _.AddTag z (_, _, _) = z
-      member _.Finish rstrs = NoResult }
+      member _.Finish _rstrs = NoResult }
 
 
 /// channel LayoutRenderer
 let channelR (chan:TextWriter) =
   { new LayoutRenderer<NoResult, NoState> with 
-      member r.Start () = NoState
-      member r.AddText z s = chan.Write s.Text; z
-      member r.AddBreak z n = chan.WriteLine(); chan.Write (spaces n); z
-      member r.AddTag z (tag, attrs, start) =  z
-      member r.Finish z = NoResult }
+      member _.Start () = NoState
+      member _.AddText z s = chan.Write s.Text; z
+      member _.AddBreak z n = chan.WriteLine(); chan.Write (spaces n); z
+      member _.AddTag z (_tag, _attrs, _start) =  z
+      member _.Finish z = NoResult }
 
 /// buffer render
 let bufferR os =
   { new LayoutRenderer<NoResult, NoState> with 
-      member r.Start () = NoState
-      member r.AddText z s = bprintf os "%s" s.Text; z
-      member r.AddBreak z n = bprintf os "\n"; bprintf os "%s" (spaces n); z
-      member r.AddTag z (tag, attrs, start) = z
-      member r.Finish z = NoResult }
+      member _.Start () = NoState
+      member _.AddText z s = bprintf os "%s" s.Text; z
+      member _.AddBreak z n = bprintf os "\n"; bprintf os "%s" (spaces n); z
+      member _.AddTag z (_tag, _attrs, _start) = z
+      member _.Finish z = NoResult }
 
-//--------------------------------------------------------------------------
-//INDEX: showL, outL are most common
-//--------------------------------------------------------------------------
+let showL layout = renderL stringR layout
 
-let showL                   layout = renderL stringR         layout
-let outL (chan:TextWriter)  layout = renderL (channelR chan) layout |> ignore
-let bufferL os              layout = renderL (bufferR os)    layout |> ignore
+let outL (chan:TextWriter) layout = renderL (channelR chan) layout |> ignore
+
+let bufferL os layout = renderL (bufferR os) layout |> ignore
