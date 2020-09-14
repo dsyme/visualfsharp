@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks Condition="'$(OS)' != 'Unix'">net472;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' != 'Unix'">netstandard2.0</TargetFrameworks>
     <TargetFramework Condition="'$(OS)' == 'Unix'">netstandard2.0</TargetFramework>
     <AssemblyName>FSharp.Compiler.Service</AssemblyName>
     <NoWarn>$(NoWarn);44;62;69;65;54;61;75;62;9;2003;NU5125</NoWarn>
