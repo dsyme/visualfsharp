@@ -2311,13 +2311,6 @@ opt_explicitValTyparDecls:
   |       
       { SynValTyparDecls([], true, []) }
 
-opt_explicitValTyparDecls2: 
-  | explicitValTyparDecls 
-      { Some $1 } 
-
-  | /* EMPTY */      
-      { None }
-
 /* Any tokens in this grammar must be added to the lex filter rule 'peekAdjacentTypars' */
 /* See the F# specification "Lexical analysis of type applications and type parameter definitions" */
 opt_typeConstraints:
@@ -3068,14 +3061,23 @@ constrPattern:
   | atomicPatternLongIdent explicitValTyparDecls                                                          
       { let vis, lid = $1 in SynPat.LongIdent (lid, None, Some $2, SynArgPats.Pats [], vis, lhs parseState) }
 
-  | atomicPatternLongIdent opt_explicitValTyparDecls2                     atomicPatsOrNamePatPairs    %prec pat_app 
-      { let vis, lid = $1 in SynPat.LongIdent (lid, None, $2, $3, vis, lhs parseState) }
+  | atomicPatternLongIdent explicitValTyparDecls atomicPatsOrNamePatPairs    %prec pat_app 
+      { let vis, lid = $1 in SynPat.LongIdent (lid, None, Some $2, $3, vis, lhs parseState) }
 
-  | atomicPatternLongIdent opt_explicitValTyparDecls2 HIGH_PRECEDENCE_PAREN_APP atomicPatsOrNamePatPairs                  
-      { let vis, lid = $1 in SynPat.LongIdent (lid, None, $2, $4, vis, lhs parseState) }
+  | atomicPatternLongIdent explicitValTyparDecls HIGH_PRECEDENCE_PAREN_APP atomicPatsOrNamePatPairs                  
+      { let vis, lid = $1 in SynPat.LongIdent (lid, None, Some $2, $4, vis, lhs parseState) }
 
-  | atomicPatternLongIdent opt_explicitValTyparDecls2 HIGH_PRECEDENCE_BRACK_APP atomicPatsOrNamePatPairs                  
-      { let vis, lid = $1 in SynPat.LongIdent (lid, None, $2, $4, vis, lhs parseState) }
+  | atomicPatternLongIdent explicitValTyparDecls HIGH_PRECEDENCE_BRACK_APP atomicPatsOrNamePatPairs                  
+      { let vis, lid = $1 in SynPat.LongIdent (lid, None, Some $2, $4, vis, lhs parseState) }
+
+  | atomicPatternLongIdent atomicPatsOrNamePatPairs    %prec pat_app 
+      { let vis, lid = $1 in SynPat.LongIdent (lid, None, None, $2, vis, lhs parseState) }
+
+  | atomicPatternLongIdent HIGH_PRECEDENCE_PAREN_APP atomicPatsOrNamePatPairs                  
+      { let vis, lid = $1 in SynPat.LongIdent (lid, None, None, $3, vis, lhs parseState) }
+
+  | atomicPatternLongIdent HIGH_PRECEDENCE_BRACK_APP atomicPatsOrNamePatPairs                  
+      { let vis, lid = $1 in SynPat.LongIdent (lid, None, None, $3, vis, lhs parseState) }
 
   | COLON_QMARK atomTypeOrAnonRecdType  %prec pat_isinst 
       { SynPat.IsInst($2, lhs parseState) }
