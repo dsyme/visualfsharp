@@ -50,10 +50,10 @@ type public PreXmlDoc =
 
     static member internal CreateFromGrabPoint: collector:XmlDocCollector * grabPointPos: pos -> PreXmlDoc
 
-    static member Merge: a:PreXmlDoc -> b:PreXmlDoc -> PreXmlDoc
+    static member internal Merge: a:PreXmlDoc -> b:PreXmlDoc -> PreXmlDoc
     
-    static member Create: unprocessedLines:string [] * range:range -> PreXmlDoc
+    static member internal Create: unprocessedLines:string [] * range:range -> PreXmlDoc
 
-    member ToXmlDoc: check:bool * paramNamesOpt:string list option -> XmlDoc
+    member internal ToXmlDoc: check:bool * paramNamesOpt:string list option -> XmlDoc
 
     static member Empty: PreXmlDoc

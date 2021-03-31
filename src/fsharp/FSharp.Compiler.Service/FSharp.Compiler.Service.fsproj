@@ -443,6 +443,12 @@
     <Compile Include="..\XmlDoc.fs">
       <Link>ParserAndUntypedAST\XmlDoc.fs</Link>
     </Compile>
+    <Compile Include="..\SyntaxIdents.fsi">
+      <Link>ParserAndUntypedAST\SyntaxIdents.fsi</Link>
+    </Compile>
+    <Compile Include="..\SyntaxIdents.fs">
+      <Link>ParserAndUntypedAST\SyntaxIdents.fs</Link>
+    </Compile>
     <Compile Include="..\SyntaxTree.fsi">
       <Link>ParserAndUntypedAST\SyntaxTree.fsi</Link>
     </Compile>

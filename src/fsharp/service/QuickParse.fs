@@ -5,6 +5,7 @@ namespace FSharp.Compiler.EditorServices
 open System
 open Internal.Utilities.Library
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.Syntax.PrettyNaming
 open FSharp.Compiler.Tokenization
 
 /// Qualified long name.
@@ -43,7 +44,7 @@ type PartialLongName =
 /// below is inaccurate for long identifier chains involving ``...`` identifiers.  And there are special cases
 /// for active pattern names and so on.
 module QuickParse =
-    open PrettyNaming
+
     /// Puts us after the last character.
     let MagicalAdjustmentConstant = 1
 

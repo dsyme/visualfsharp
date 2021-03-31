@@ -5,79 +5,13 @@ namespace rec FSharp.Compiler.Syntax
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 
-/// Represents an identifier in F# code
-[<Struct; NoEquality; NoComparison>]
-type Ident =
-     new: text: string * range: range -> Ident
-     member idText: string
-     member idRange: range
-       
-
-/// Represents a long identifier e.g. 'A.B.C'
-type LongIdent = Ident list
-
-
-/// Represents a long identifier with possible '.' at end.
-///
-/// Typically dotRanges.Length = lid.Length-1, but they may be same if (incomplete) code ends in a dot, e.g. "Foo.Bar."
-/// The dots mostly matter for parsing, and are typically ignored by the typechecker, but
-/// if dotRanges.Length = lid.Length, then the parser must have reported an error, so the typechecker is allowed
-/// more freedom about typechecking these expressions.
-/// LongIdent can be empty list - it is used to denote that name of some AST element is absent (i.e. empty type name in inherit)
-type LongIdentWithDots =
-    | //[<Experimental("This construct is subject to change in future versions of FSharp.Compiler.Service and should only be used if no adequate alternative is available.")>]
-      LongIdentWithDots of id: LongIdent * dotRanges: range list
-
-    /// Gets the syntax range of this construct
-    member Range: range
-
-    /// Get the long ident for this construct
-    member Lid: LongIdent
-
-    /// Indicates if the construct ends in '.' due to error recovery
-    member ThereIsAnExtraDotAtTheEnd: bool
-
-    /// Gets the syntax range for part of this construct
-    member RangeWithoutAnyExtraDot: range
-
-/// Indicates if the construct arises from error recovery
-[<RequireQualifiedAccess>]
-type ParserDetail =
-    /// The construct arises normally
-    | Ok
-
-    /// The construct arises from error recovery
-    | ErrorRecovery
-
-/// Represents whether a type parameter has a static requirement or not (^T or 'T)
-[<RequireQualifiedAccess>]
-type TyparStaticReq =
-    /// The construct is a normal type inference variable
-    | None
-
-    /// The construct is a statically inferred type inference variable '^T'
-    | HeadType
-
 /// Represents a syntactic type parameter
 [<NoEquality; NoComparison>]
 type SynTypar =
-    | SynTypar of ident: Ident * staticReq: TyparStaticReq * isCompGen: bool
+    | SynTypar of ident: Ident * staticReq: TyparStaticReq * isCompilerGenerated: bool
 
     /// Gets the syntax range of this construct
     member Range: range
-
-/// Indicate if the string had a special format
-[<Struct; RequireQualifiedAccess>]
-type SynStringKind =
-    | Regular
-    | Verbatim
-    | TripleQuote
-
-/// Indicate if the byte string had a special format
-[<Struct; RequireQualifiedAccess>]
-type SynByteStringKind =
-    | Regular
-    | Verbatim
 
 /// The unchecked abstract syntax tree of constants in F# types and expressions.
 [<NoEquality; NoComparison; RequireQualifiedAccess>]
@@ -137,19 +71,15 @@ type SynConst =
     | UserNum of value: string * suffix: string
 
     /// F# syntax: verbatim or regular string, e.g. "abc"
-    | String of text: string * synStringKind :SynStringKind * range: range
+    | String of text: string * synStringKind: SynStringKind * range: range
 
     /// F# syntax: verbatim or regular byte string, e.g. "abc"B.
-    ///
-    /// Also used internally in the typechecker once an array of unit16 constants
-    /// is detected, to allow more efficient processing of large arrays of uint16 constants.
     | Bytes of bytes: byte[] * synByteStringKind: SynByteStringKind * range: range
 
-    /// Used internally in the typechecker once an array of unit16 constants
-    /// is detected, to allow more efficient processing of large arrays of uint16 constants.
+    /// An array of uint16 constants, to allow more efficient processing of large arrays of constants.
     | UInt16s of uint16[]
 
-    /// Old comment: "we never iterate, so the const here is not another SynConst.Measure"
+    /// A constant with unit-of-measure annotation
     | Measure of constant: SynConst * constantRange: range * SynMeasure
 
     /// Gets the syntax range of this construct
@@ -1465,7 +1395,7 @@ type SynTypeDefnSimpleRepr =
 
     /// A type abbreviation, "type X = A.B.C"
     | TypeAbbrev of
-        detail: ParserDetail *
+        isFromErrorRecovery: bool *
         rhsType: SynType *
         range: range
 

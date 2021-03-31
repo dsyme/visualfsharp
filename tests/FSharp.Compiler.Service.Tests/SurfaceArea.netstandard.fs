@@ -4930,11 +4930,8 @@ FSharp.Compiler.Syntax.PreXmlDoc
 FSharp.Compiler.Syntax.PreXmlDoc: Boolean Equals(FSharp.Compiler.Syntax.PreXmlDoc)
 FSharp.Compiler.Syntax.PreXmlDoc: Boolean Equals(System.Object)
 FSharp.Compiler.Syntax.PreXmlDoc: Boolean Equals(System.Object, System.Collections.IEqualityComparer)
-FSharp.Compiler.Syntax.PreXmlDoc: FSharp.Compiler.Syntax.PreXmlDoc Create(System.String[], FSharp.Compiler.Text.Range)
 FSharp.Compiler.Syntax.PreXmlDoc: FSharp.Compiler.Syntax.PreXmlDoc Empty
-FSharp.Compiler.Syntax.PreXmlDoc: FSharp.Compiler.Syntax.PreXmlDoc Merge(FSharp.Compiler.Syntax.PreXmlDoc, FSharp.Compiler.Syntax.PreXmlDoc)
 FSharp.Compiler.Syntax.PreXmlDoc: FSharp.Compiler.Syntax.PreXmlDoc get_Empty()
-FSharp.Compiler.Syntax.PreXmlDoc: FSharp.Compiler.Syntax.XmlDoc ToXmlDoc(Boolean, Microsoft.FSharp.Core.FSharpOption`1[Microsoft.FSharp.Collections.FSharpList`1[System.String]])
 FSharp.Compiler.Syntax.PreXmlDoc: Int32 GetHashCode()
 FSharp.Compiler.Syntax.PreXmlDoc: Int32 GetHashCode(System.Collections.IEqualityComparer)
 FSharp.Compiler.Syntax.PreXmlDoc: System.String ToString()

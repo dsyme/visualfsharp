@@ -263,7 +263,7 @@ let TryStripPrefixPath (g: TcGlobals) (enclosingNamespacePath: Ident list) =
     | _ -> None
 
 /// Add a "module X = Y" local module abbreviation to the TcEnv 
-let AddModuleAbbreviationAndReport tcSink scopem id modrefs env =
+let AddModuleAbbreviationAndReport tcSink scopem (id: Ident) modrefs env =
     let env = 
         if isNil modrefs then env else
         { env with eNameResEnv = AddModuleAbbrevToNameEnv id env.eNameResEnv modrefs }
@@ -3606,7 +3606,7 @@ module EstablishTypeDefinitionCores =
             // "type x = | A" can always be used instead. 
             | TyconCoreAbbrevThatIsReallyAUnion (hasMeasureAttr, envinner, id) _ -> ()
             
-            | SynTypeDefnSimpleRepr.TypeAbbrev(ParserDetail.Ok, rhsType, m) ->
+            | SynTypeDefnSimpleRepr.TypeAbbrev(false, rhsType, m) ->
 
 #if !NO_EXTENSIONTYPING
               // Check we have not already decided that this is a generative provided type definition. If we have already done this (i.e. this is the second pass
@@ -3895,10 +3895,10 @@ module EstablishTypeDefinitionCores =
                     writeFakeUnionCtorsToSink [ unionCase ]
                     Construct.MakeUnionRepr [ unionCase ], None, NoSafeInitInfo
 
-                | SynTypeDefnSimpleRepr.TypeAbbrev(ParserDetail.ErrorRecovery, _rhsType, _) ->
+                | SynTypeDefnSimpleRepr.TypeAbbrev(isFromErrorRecovery=true) ->
                     TNoRepr, None, NoSafeInitInfo
 
-                | SynTypeDefnSimpleRepr.TypeAbbrev(ParserDetail.Ok, rhsType, _) ->
+                | SynTypeDefnSimpleRepr.TypeAbbrev(false, rhsType, _) ->
                     if hasSealedAttr = Some true then 
                         errorR (Error(FSComp.SR.tcAbbreviatedTypesCannotBeSealed(), m))
                     noAbstractClassAttributeCheck()
