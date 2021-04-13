@@ -328,6 +328,7 @@ type SynType =
 
     | AnonRecd of
         isStruct: bool *
+        withoutFields:Ident list *
         fields:(Ident * SynType) list *
         range: range
 

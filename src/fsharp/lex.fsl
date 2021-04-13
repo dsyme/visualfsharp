@@ -879,6 +879,7 @@ rule token args skip = parse
  | "%%" { PERCENT_OP("%%") }
 
  | "-" { MINUS }
+ | "with-" { WITH_MINUS }
 
  | "~" { RESERVED }
 

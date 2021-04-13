@@ -5548,8 +5548,8 @@ and TcExprUndelayed cenv overallTy env tpenv (synExpr: SynExpr) =
         let expr = mkAnyTupled cenv.g m tupInfo args' argTys 
         expr, tpenv
 
-    | SynExpr.AnonRecd (isStruct, optOrigExpr, unsortedFieldExprs, mWholeExpr) -> 
-        TcAnonRecdExpr cenv overallTy env tpenv (isStruct, optOrigExpr, unsortedFieldExprs, mWholeExpr)
+    | SynExpr.AnonRecd (isStruct, optOrigExpr, withoutFields, unsortedFieldExprs, mWholeExpr) -> 
+        TcAnonRecdExpr cenv overallTy env tpenv (isStruct, optOrigExpr, withoutFields, unsortedFieldExprs, mWholeExpr)
 
     | SynExpr.ArrayOrList (isArray, args, m) -> 
         CallExprHasTypeSink cenv.tcSink (m, env.NameEnv, overallTy, env.AccessRights)
@@ -6934,7 +6934,7 @@ and TcRecdExpr cenv overallTy env tpenv (inherits, optOrigExpr, flds, mWholeExpr
 
 
 // Check '{| .... |}'
-and TcAnonRecdExpr cenv overallTy env tpenv (isStruct, optOrigSynExpr, unsortedFieldIdsAndSynExprsGiven, mWholeExpr) =
+and TcAnonRecdExpr cenv overallTy env tpenv (isStruct, optOrigSynExpr, withoutFields, unsortedFieldIdsAndSynExprsGiven, mWholeExpr) =
     let unsortedFieldSynExprsGiven = List.map snd unsortedFieldIdsAndSynExprsGiven
 
     match optOrigSynExpr with 
