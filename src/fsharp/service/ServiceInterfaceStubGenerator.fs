@@ -511,7 +511,7 @@ module InterfaceStubGenerator =
         GetInterfaceMembers entity |> Seq.isEmpty
 
     let internal (|LongIdentPattern|_|) = function
-        | SynPat.LongIdent(LongIdentWithDots(xs, _), _, _, _, _, _) ->
+        | SynPat.LongIdent(LongIdentWithDots(xs, _), _, _, _, _, _, _, _) ->
 //            let (name, range) = xs |> List.map (fun x -> x.idText, x.idRange) |> List.last
             let last = List.last xs
             Some(last.idText, last.idRange)
@@ -522,13 +522,13 @@ module InterfaceStubGenerator =
     // On merged properties (consisting both getters and setters), they have the same range values,
     // so we use 'get_' and 'set_' prefix to ensure corresponding symbols are retrieved correctly.
     let internal (|MemberNameAndRange|_|) = function
-        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range), 
+        | SynBinding(_access, _bindingKind, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range), 
                      _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = SynMemberKind.PropertyGet ->
             if name.StartsWithOrdinal("get_") then Some(name, range) else Some("get_" + name, range)
-        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range), 
+        | SynBinding(_access, _bindingKind, _attrs, _xmldoc, SynValData(Some mf, _, _), LongIdentPattern(name, range), 
                      _retTy, _expr, _bindingRange, _seqPoint) when mf.MemberKind = SynMemberKind.PropertySet ->
             if name.StartsWithOrdinal("set_") then Some(name, range) else Some("set_" + name, range)
-        | SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, LongIdentPattern(name, range), 
+        | SynBinding(_access, _bindingKind, _attrs, _xmldoc, _valData, LongIdentPattern(name, range), 
                      _retTy, _expr, _bindingRange, _seqPoint) ->
             Some(name, range)
         | _ ->
@@ -758,7 +758,7 @@ module InterfaceStubGenerator =
                 | SynMemberDefn.Inherit _ -> None
                 | SynMemberDefn.ImplicitInherit (_, expr, _, _) -> walkExpr expr
 
-        and walkBinding (SynBinding(_access, _bindingKind, _isInline, _isMutable, _attrs, _xmldoc, _valData, _headPat, _retTy, expr, _bindingRange, _seqPoint)) =
+        and walkBinding (SynBinding(_access, _bindingKind, _attrs, _xmldoc, _valData, _headPat, _retTy, expr, _bindingRange, _seqPoint)) =
             walkExpr expr
 
         and walkExpr expr =

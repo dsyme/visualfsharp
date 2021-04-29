@@ -484,13 +484,14 @@ module ParsedInput =
 
         and walkPatWithKind (kind: EntityKind option) = function
             | SynPat.Ands (pats, _) -> List.tryPick walkPat pats
-            | SynPat.Named(SynPat.Wild nameRange as pat, _, _, _, _) -> 
-                if isPosInRange nameRange then None
+            | SynPat.Named(None, _, _, _, _, _, _) -> None
+            | SynPat.Named(Some pat, id, _, _, _, _, _) -> 
+                if isPosInRange id.idRange then None
                 else walkPat pat
             | SynPat.Typed(pat, t, _) -> walkPat pat |> Option.orElse (walkType t)
             | SynPat.Attrib(pat, Attributes attrs, _) -> walkPat pat |> Option.orElse (List.tryPick walkAttribute attrs)
             | SynPat.Or(pat1, pat2, _) -> List.tryPick walkPat [pat1; pat2]
-            | SynPat.LongIdent(_, _, typars, ConstructorPats pats, _, r) -> 
+            | SynPat.LongIdent(_, _, typars, _, _, ConstructorPats pats, _, r) -> 
                 ifPosInRange r (fun _ -> kind)
                 |> Option.orElse (
                     typars 
@@ -507,7 +508,7 @@ module ParsedInput =
 
         and walkPat = walkPatWithKind None
 
-        and walkBinding (SynBinding(_, _, _, _, Attributes attrs, _, _, pat, returnInfo, e, _, _)) =
+        and walkBinding (SynBinding(_, _, Attributes attrs, _, _, pat, returnInfo, e, _, _)) =
             List.tryPick walkAttribute attrs
             |> Option.orElse (walkPat pat)
             |> Option.orElse (walkExpr e)
@@ -990,7 +991,7 @@ module ParsedInput =
                             | SynPat.Named (range = range) when rangeContainsPos range pos -> 
                                 // parameter without type hint, no completion
                                 Some CompletionContext.Invalid 
-                            | SynPat.Typed(SynPat.Named(SynPat.Wild range, _, _, _, _), _, _) when rangeContainsPos range pos ->
+                            | SynPat.Typed(SynPat.Named(_, id, _, _, _, _, _), _, _) when rangeContainsPos id.idRange pos ->
                                 // parameter with type hint, but we are on its name, no completion
                                 Some CompletionContext.Invalid
                             | _ -> defaultTraverse synBinding
@@ -999,7 +1000,7 @@ module ParsedInput =
                         | SynPat.LongIdent(longDotId = lidwd) when rangeContainsPos lidwd.Range pos ->
                             // let fo|o x = ()
                             Some CompletionContext.Invalid
-                        | SynPat.LongIdent(_, _, _, ctorArgs, _, _) ->
+                        | SynPat.LongIdent(_, _, _, _, _, ctorArgs, _, _) ->
                             match ctorArgs with
                             | SynArgPats.Pats pats ->
                                 pats |> List.tryPick (fun pat ->
@@ -1200,7 +1201,9 @@ module ParsedInput =
             | SynPat.Tuple (_,pats, _)
             | SynPat.ArrayOrList (_, pats, _)
             | SynPat.Ands (pats, _) -> List.iter walkPat pats
-            | SynPat.Named (pat, ident, _, _, _) ->
+            | SynPat.Named (None, ident, _, _, _, _, _) ->
+                addIdent ident
+            | SynPat.Named (Some pat, ident, _, _, _, _, _) ->
                 walkPat pat
                 addIdent ident
             | SynPat.Typed (pat, t, _) ->
@@ -1210,7 +1213,7 @@ module ParsedInput =
                 walkPat pat
                 List.iter walkAttribute attrs
             | SynPat.Or (pat1, pat2, _) -> List.iter walkPat [pat1; pat2]
-            | SynPat.LongIdent (ident, _, typars, ConstructorPats pats, _, _) ->
+            | SynPat.LongIdent (ident, _, typars, _, _, ConstructorPats pats, _, _) ->
                 addLongIdentWithDots ident
                 typars
                 |> Option.iter (fun (SynValTyparDecls (typars, _, constraints)) ->
@@ -1224,7 +1227,7 @@ module ParsedInput =
     
         and walkTypar (SynTypar (_, _, _)) = ()
     
-        and walkBinding (SynBinding(_, _, _, _, Attributes attrs, _, _, pat, returnInfo, e, _, _)) =
+        and walkBinding (SynBinding(_, _, Attributes attrs, _, _, pat, returnInfo, e, _, _)) =
             List.iter walkAttribute attrs
             walkPat pat
             walkExpr e

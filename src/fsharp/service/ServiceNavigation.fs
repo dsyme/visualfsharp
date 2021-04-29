@@ -135,7 +135,7 @@ module NavigationImpl =
             NavigationItem.Create(id.idText, kind, baseGlyph, m, m, false, enclosingEntityKind, isAbstract, access), (addItemName(id.idText))
 
         // Process let-binding
-        let processBinding isMember enclosingEntityKind isAbstract (SynBinding(_, _, _, _, _, _, SynValData(memberOpt, _, _), synPat, _, synExpr, _, _)) =
+        let processBinding isMember enclosingEntityKind isAbstract (SynBinding(_, _, _, _, SynValData(memberOpt, _, _), synPat, _, synExpr, _, _)) =
             let m = 
                 match synExpr with 
                 | SynExpr.Typed (e, _, _) -> e.Range // fix range for properties with type annotations
@@ -158,9 +158,9 @@ module NavigationImpl =
                   | hd :: _ -> (lid, hd.idRange) 
                   | _ -> (lid, m)
                 [ createMemberLid(lidShow, kind, icon, unionRanges rangeMerge m, enclosingEntityKind, isAbstract, access) ]
-            | SynPat.LongIdent(LongIdentWithDots(lid,_), _, _, _, access, _), _ -> 
+            | SynPat.LongIdent(LongIdentWithDots(lid,_), _, _, _, _, _, access, _), _ -> 
                 [ createMemberLid(lid, NavigationItemKind.Field, FSharpGlyph.Field, unionRanges (List.head lid).idRange m, enclosingEntityKind, isAbstract, access) ]
-            | SynPat.Named(_, id, _, access, _), _ -> 
+            | SynPat.Named(_, id, _, _, _, access, _), _ -> 
                 let glyph = if isMember then FSharpGlyph.Method else FSharpGlyph.Field
                 [ createMember(id, NavigationItemKind.Field, glyph, unionRanges id.idRange m, enclosingEntityKind, isAbstract, access) ]
             | _ -> []
@@ -240,8 +240,8 @@ module NavigationImpl =
                              processMembers membs enclosingEntityKind |> snd
                          | _ -> [] 
                      // can happen if one is a getter and one is a setter
-                     | [SynMemberDefn.Member(memberDefn=SynBinding(headPat=SynPat.LongIdent(lid1, Some(info1),_,_,_,_)) as binding1)
-                        SynMemberDefn.Member(memberDefn=SynBinding(headPat=SynPat.LongIdent(lid2, Some(info2),_,_,_,_)) as binding2)] ->
+                     | [SynMemberDefn.Member(memberDefn=SynBinding(headPat=SynPat.LongIdent(lid1, Some(info1),_,_,_,_,_,_)) as binding1)
+                        SynMemberDefn.Member(memberDefn=SynBinding(headPat=SynPat.LongIdent(lid2, Some(info2),_,_,_,_,_,_)) as binding2)] ->
                          // ensure same long id
                          assert((lid1.Lid,lid2.Lid) ||> List.forall2 (fun x y -> x.idText = y.idText))
                          // ensure one is getter, other is setter
@@ -563,7 +563,7 @@ module NavigateTo =
             | SynMemberKind.PropertyGetSet -> NavigableItemKind.Property
             | SynMemberKind.Member -> NavigableItemKind.Member
     
-        let addBinding (SynBinding(_, _, _, _, _, _, valData, headPat, _, _, _, _)) itemKind container =
+        let addBinding (SynBinding(_, _, _, _, valData, headPat, _, _, _, _)) itemKind container =
             let (SynValData(memberFlagsOpt, _, _)) = valData
             let kind =
                 match itemKind with
@@ -574,13 +574,13 @@ module NavigateTo =
                     | _ -> NavigableItemKind.ModuleValue
     
             match headPat with
-            | SynPat.LongIdent(LongIdentWithDots([_; id], _), _, _, _, _access, _) ->
+            | SynPat.LongIdent(LongIdentWithDots([_; id], _), _, _, _, _, _, _access, _) ->
                 // instance members
                 addIdent kind id false container
-            | SynPat.LongIdent(LongIdentWithDots([id], _), _, _, _, _, _) ->
+            | SynPat.LongIdent(LongIdentWithDots([id], _), _, _, _, _, _, _, _) ->
                 // functions
                 addIdent kind id false container
-            | SynPat.Named(_, id, _, _, _) ->
+            | SynPat.Named(_, id, _, _, _, _, _) ->
                 // values
                 addIdent kind id false container
             | _ -> ()

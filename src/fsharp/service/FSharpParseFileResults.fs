@@ -86,11 +86,11 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
     member _.TryRangeOfNameOfNearestOuterBindingContainingPos pos =
         let tryGetIdentRangeFromBinding binding =
             match binding with
-            | SynBinding(_, _, _, _, _, _, _, headPat, _, _, _, _) ->
+            | SynBinding(_, _, _, _, _, headPat, _, _, _, _) ->
                 match headPat with
-                | SynPat.LongIdent (longIdentWithDots, _, _, _, _, _) ->
+                | SynPat.LongIdent (longDotId=longIdentWithDots) ->
                     Some longIdentWithDots.Range
-                | SynPat.Named(_, ident, false, _, _) ->
+                | SynPat.Named(_, ident, false, _, _, _, _) ->
                     Some ident.idRange
                 | _ ->
                     None
@@ -127,7 +127,7 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
 
             override _.VisitBinding(_path, defaultTraverse, binding) =
                 match binding with
-                | SynBinding(_, _, _, _, _, _, SynValData (None, _, _), _, _, expr, _range, _) as b when rangeContainsPos b.RangeOfBindingWithRhs pos ->
+                | SynBinding(_, _, _, _, SynValData (None, _, _), _, _, expr, _range, _) as b when rangeContainsPos b.RangeOfBindingWithRhs pos ->
                     match tryGetIdentRangeFromBinding b with
                     | Some range -> walkBinding expr range
                     | None -> None
@@ -210,7 +210,7 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
                     bindings
                     |> List.tryFind (fun x -> rangeContainsPos x.RangeOfBindingWithRhs pos)
                 match binding with
-                | Some(SynBinding.SynBinding(_, _, _, _, _, _, _, _, _, expr, _, _)) ->
+                | Some(SynBinding.SynBinding(_, _, _, _, _, _, _, expr, _, _)) ->
                     getIdentRangeForFuncExprInApp traverseSynExpr expr pos
                 | None ->
                     getIdentRangeForFuncExprInApp traverseSynExpr body pos
@@ -302,7 +302,7 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
 
             member _.VisitBinding(_path, defaultTraverse, binding) =
                 match binding with
-                | SynBinding(_, SynBindingKind.Normal, _, _, _, _, _, _, _, (InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app), _, _) ->
+                | SynBinding(_, SynBindingKind.Normal, _, _, _, _, _, (InfixAppOfOpEqualsGreater(lambdaArgs, lambdaBody) as app), _, _) ->
                     Some(app.Range, lambdaArgs.Range, lambdaBody.Range)
                 | _ -> defaultTraverse binding })
 
@@ -356,7 +356,7 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
 
                 override _.VisitBinding (_path, _, binding) =
                     match binding with
-                    | SynBinding(_, _, _, _, _, _, valData, _, _, _, range, _) when rangeContainsPos range pos ->
+                    | SynBinding(_, _, _, _, valData, _, _, _, range, _) when rangeContainsPos range pos ->
                         let info = valData.SynValInfo.CurriedArgInfos
                         let mutable found = false
                         for group in info do
@@ -408,7 +408,7 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
 
                     override _.VisitBinding(_path, defaultTraverse, binding) =
                         match binding with
-                        | SynBinding.SynBinding(_, _, _, _, _, _, _, _, _, expr, range, _) when Position.posEq range.Start pos ->
+                        | SynBinding.SynBinding(_, _, _, _, _, _, _, expr, range, _) when Position.posEq range.Start pos ->
                             match expr with
                             | SynExpr.Lambda _ -> Some range
                             | _ -> None
@@ -441,12 +441,12 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
             let walkWithSeqPt sp = [ match sp with DebugPointAtWith.Yes m -> yield! checkRange m | _ -> () ]
             let walkFinallySeqPt sp = [ match sp with DebugPointAtFinally.Yes m -> yield! checkRange m | _ -> () ]
 
-            let rec walkBind (SynBinding(_, _, _, _, _, _, SynValData(memFlagsOpt, _, _), synPat, _, synExpr, _, spInfo)) =
+            let rec walkBind (SynBinding(_, _, _, _, SynValData(memFlagsOpt, _, _), synPat, _, synExpr, _, spInfo)) =
                 [ // Don't yield the binding sequence point if there are any arguments, i.e. we're defining a function or a method
                   let isFunction = 
                       Option.isSome memFlagsOpt ||
                       match synPat with 
-                      | SynPat.LongIdent (_, _, _, SynArgPats.Pats args, _, _) when not (List.isEmpty args) -> true
+                      | SynPat.LongIdent (_, _, _, _, _, SynArgPats.Pats args, _, _) when not (List.isEmpty args) -> true
                       | _ -> false
                   if not isFunction then 
                       yield! walkBindSeqPt spInfo

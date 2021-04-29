@@ -322,6 +322,11 @@
         <target state="translated">Tür tanımında beklenmeyen belirteç var. '{0}' türünden sonra '=' bekleniyordu.</target>
         <note />
       </trans-unit>
+      <trans-unit id="parsOptionalArgumentsMayNotBeMutableOrInline">
+        <source>Optional arguments may not be mutable or inline</source>
+        <target state="new">Optional arguments may not be mutable or inline</target>
+        <note />
+      </trans-unit>
       <trans-unit id="parsUnexpectedSymbolDot">
         <source>Unexpected symbol '.' in member definition. Expected 'with', '=' or other token.</source>
         <target state="translated">Üye tanımında '.' sembolü beklenmiyordu. 'with', '=' veya başka bir belirteç bekleniyordu.</target>

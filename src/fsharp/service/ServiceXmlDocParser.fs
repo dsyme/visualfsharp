@@ -19,10 +19,10 @@ module XmlDocParsing =
 
     let rec digNamesFrom pat =
         match pat with
-        | SynPat.Named(_innerPat,id,_isTheThisVar,_access,_range) -> [id.idText]
+        | SynPat.Named(_innerPat,id,_isTheThisVar,_, _, _access,_range) -> [id.idText]
         | SynPat.Typed(pat,_type,_range) -> digNamesFrom pat
         | SynPat.Attrib(pat,_attrs,_range) -> digNamesFrom pat
-        | SynPat.LongIdent(_lid,_idOpt,_typDeclsOpt,ConstructorPats pats,_access,_range) -> 
+        | SynPat.LongIdent(_lid,_idOpt,_typDeclsOpt,_, _, ConstructorPats pats,_access,_range) -> 
             pats |> List.collect digNamesFrom 
         | SynPat.Tuple(_,pats,_range) -> pats |> List.collect digNamesFrom 
         | SynPat.Paren(pat,_range) -> digNamesFrom pat
@@ -57,15 +57,15 @@ module XmlDocParsing =
                 (synModuleDecls |> List.collect getXmlDocablesSynModuleDecl)
             | SynModuleDecl.Let(_, synBindingList, range) -> 
                 let anyXmlDoc = 
-                    synBindingList |> List.exists (fun (SynBinding(_, _, _, _, _, preXmlDoc, _, _, _, _, _, _)) -> 
+                    synBindingList |> List.exists (fun (SynBinding(_, _, _, preXmlDoc, _, _, _, _, _, _)) -> 
                         not <| isEmptyXmlDoc preXmlDoc)
                 if anyXmlDoc then [] else
                 let synAttributes = 
-                    synBindingList |> List.collect (fun (SynBinding(_, _, _, _, a, _, _, _, _, _, _, _)) -> a)
+                    synBindingList |> List.collect (fun (SynBinding(_, _, a, _, _, _, _, _, _, _)) -> a)
                 let fullRange = synAttributes |> List.fold (fun r a -> unionRanges r a.Range) range
                 let line = fullRange.StartLine 
                 let indent = indentOf line
-                [ for SynBinding(_, _, _, _, _, _, synValData, synPat, _, _, _, _) in synBindingList do
+                [ for SynBinding(_, _, _, _, synValData, synPat, _, _, _, _) in synBindingList do
                       match synValData with
                       | SynValData(_memberFlagsOpt, SynValInfo(args, _), _) when not (List.isEmpty args) -> 
                           let parameters =
@@ -111,7 +111,7 @@ module XmlDocParsing =
             docForTypeDefn @ stuff @ (synMemberDefns |> List.collect getXmlDocablesSynMemberDefn)
 
         and getXmlDocablesSynMemberDefn = function
-            | SynMemberDefn.Member(SynBinding(_, _, _, _, synAttributes, preXmlDoc, _, synPat, _, _, _, _), memRange) -> 
+            | SynMemberDefn.Member(SynBinding(_, _, synAttributes, preXmlDoc, _, synPat, _, _, _, _), memRange) -> 
                 if isEmptyXmlDoc preXmlDoc then
                     let fullRange = synAttributes |> List.fold (fun r a -> unionRanges r a.Range) memRange
                     let line = fullRange.StartLine 

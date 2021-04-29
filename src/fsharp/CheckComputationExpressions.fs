@@ -1089,12 +1089,12 @@ let TcComputationExpression cenv env overallTy tpenv (mWhole, interpExpr: Expr, 
             // For 'query' check immediately
             if isQuery then
                 match (List.map (BindingNormalization.NormalizeBinding ValOrMemberBinding cenv env) binds) with 
-                | [NormalizedBinding(_, SynBindingKind.Normal, (*inline*)false, (*mutable*)false, _, _, _, _, _, _, _, _)] when not isRec -> 
+                | [NormalizedBinding(_, SynBindingKind.Normal, _, _, _, _, _, _, _, _)] when not isRec -> 
                     ()
                 | normalizedBindings -> 
                     let failAt m = error(Error(FSComp.SR.tcNonSimpleLetBindingInQuery(), m))
                     match normalizedBindings with 
-                    | NormalizedBinding(_, _, _, _, _, _, _, _, _, _, mBinding, _) :: _ -> failAt mBinding 
+                    | NormalizedBinding(_, _, _, _, _, _, _, _, mBinding, _) :: _ -> failAt mBinding 
                     | _ -> failAt m
 
             // Add the variables to the query variable space, on demand
@@ -1102,7 +1102,7 @@ let TcComputationExpression cenv env overallTy tpenv (mWhole, interpExpr: Expr, 
                 addVarsToVarSpace varSpace (fun mQueryOp env -> 
                     // Normalize the bindings before detecting the bound variables
                     match (List.map (BindingNormalization.NormalizeBinding ValOrMemberBinding cenv env) binds) with 
-                    | [NormalizedBinding(_vis, SynBindingKind.Normal, false, false, _, _, _, _, pat, _, _, _)] -> 
+                    | [NormalizedBinding(_vis, SynBindingKind.Normal, _, _, _, _, pat, _, _, _)] -> 
                         // successful case
                         use _holder = TemporarilySuspendReportingTypecheckResultsToSink cenv.tcSink
                         let _, _, vspecs, envinner, _ = TcMatchPattern cenv (NewInferenceType()) env tpenv (pat, None) 
@@ -1114,7 +1114,7 @@ let TcComputationExpression cenv env overallTy tpenv (mWhole, interpExpr: Expr, 
             Some (trans CompExprTranslationPass.Initial q varSpace innerComp (fun holeFill -> translatedCtxt (SynExpr.LetOrUse (isRec, false, binds, holeFill, m))))
 
         // 'use x = expr in expr'
-        | SynExpr.LetOrUse (_, true, [SynBinding (_, SynBindingKind.Normal, _, _, _, _, _, pat, _, rhsExpr, _, spBind)], innerComp, _) ->
+        | SynExpr.LetOrUse (_, true, [SynBinding (_, SynBindingKind.Normal, _, _, _, pat, _, rhsExpr, _, spBind)], innerComp, _) ->
             let bindRange = match spBind with DebugPointAtBinding.Yes m -> m | _ -> rhsExpr.Range
             if isQuery then error(Error(FSComp.SR.tcUseMayNotBeUsedInQueries(), bindRange))
             let innerCompRange = innerComp.Range
@@ -1143,7 +1143,7 @@ let TcComputationExpression cenv env overallTy tpenv (mWhole, interpExpr: Expr, 
             Some (transBind q varSpace bindRange "Bind" [rhsExpr] pat spBind innerComp translatedCtxt)
 
         // 'use! pat = e1 in e2' --> build.Bind(e1, (function  _argN -> match _argN with pat -> build.Using(x, (fun _argN -> match _argN with pat -> e2))))
-        | SynExpr.LetOrUseBang (spBind, true, isFromSource, (SynPat.Named (SynPat.Wild _, id, false, _, _) as pat) , rhsExpr, [], innerComp, _)
+        | SynExpr.LetOrUseBang (spBind, true, isFromSource, (SynPat.Named (None, id, false, _, _, _, _) as pat) , rhsExpr, [], innerComp, _)
         | SynExpr.LetOrUseBang (spBind, true, isFromSource, (SynPat.LongIdent (longDotId=LongIdentWithDots([id], _)) as pat), rhsExpr, [], innerComp, _) ->
 
             let bindRange = match spBind with DebugPointAtBinding.Yes m -> m | _ -> rhsExpr.Range
@@ -1820,7 +1820,7 @@ let TcSequenceExpression (cenv: cenv) env tpenv comp overallTy m =
                 (fun x -> x) |> Some
 
         // 'use x = expr in expr'
-        | SynExpr.LetOrUse (_isRec, true, [SynBinding (_vis, SynBindingKind.Normal, _, _, _, _, _, pat, _, rhsExpr, _, _spBind)], innerComp, wholeExprMark) ->
+        | SynExpr.LetOrUse (_isRec, true, [SynBinding (_vis, SynBindingKind.Normal, _, _, _, pat, _, rhsExpr, _, _spBind)], innerComp, wholeExprMark) ->
 
             let bindPatTy = NewInferenceType ()
             let inputExprTy = NewInferenceType ()

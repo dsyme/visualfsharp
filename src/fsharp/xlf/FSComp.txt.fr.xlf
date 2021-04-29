@@ -322,6 +322,11 @@
         <target state="translated">Jeton inattendu dans la définition de type. Signe '=' attendu après le type '{0}'.</target>
         <note />
       </trans-unit>
+      <trans-unit id="parsOptionalArgumentsMayNotBeMutableOrInline">
+        <source>Optional arguments may not be mutable or inline</source>
+        <target state="new">Optional arguments may not be mutable or inline</target>
+        <note />
+      </trans-unit>
       <trans-unit id="parsUnexpectedSymbolDot">
         <source>Unexpected symbol '.' in member definition. Expected 'with', '=' or other token.</source>
         <target state="translated">Symbole '.' inattendu dans la définition du membre. 'with','=' ou autre jeton attendu.</target>

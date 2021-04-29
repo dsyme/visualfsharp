@@ -38,10 +38,7 @@ type StampMap<'T> = Map<Stamp, 'T>
 [<RequireQualifiedAccess>]
 type ValInline =
 
-    /// Indicates the value must always be inlined and no .NET IL code is generated for the value/function
-    | PseudoVal
-
-    /// Indicates the value is inlined but the .NET IL code for the function still exists, e.g. to satisfy interfaces on objects, but that it is also always inlined 
+    /// Indicates the value must always be inlined 
     | Always
 
     /// Indicates the value may optionally be inlined by the optimizer
@@ -53,7 +50,7 @@ type ValInline =
     /// Returns true if the implementation of a value must always be inlined
     member x.MustInline = 
         match x with 
-        | ValInline.PseudoVal | ValInline.Always -> true 
+        | ValInline.Always -> true 
         | ValInline.Optional | ValInline.Never -> false
 
 /// A flag associated with values that indicates whether the recursive scope of the value is currently being processed, and 
@@ -99,7 +96,7 @@ type ValBaseOrThisInfo =
 /// Flags on values
 type ValFlags(flags: int64) = 
 
-    new (recValInfo, baseOrThis, isCompGen, inlineInfo, isMutable, isModuleOrMemberBinding, isExtensionMember, isIncrClassSpecialMember, isTyFunc, allowTypeInst, isGeneratedEventVal) =
+    new (recValInfo, baseOrThis, isCompGen, inlineInfo, inlineIfLambda, isMutable, isModuleOrMemberBinding, isExtensionMember, isIncrClassSpecialMember, isTyFunc, allowTypeInst, isGeneratedEventVal) =
         let flags = 
                      (match baseOrThis with
                                         | BaseVal ->                         0b00000000000000000000L
@@ -109,7 +106,6 @@ type ValFlags(flags: int64) =
                      (if isCompGen then                                      0b00000000000000001000L 
                       else                                                   0b000000000000000000000L) |||
                      (match inlineInfo with
-                                        | ValInline.PseudoVal ->             0b00000000000000000000L
                                         | ValInline.Always ->                0b00000000000000010000L
                                         | ValInline.Optional ->              0b00000000000000100000L
                                         | ValInline.Never ->                 0b00000000000000110000L) |||
@@ -141,7 +137,11 @@ type ValFlags(flags: int64) =
 
                      (match isGeneratedEventVal with
                                         | false     ->                       0b00000000000000000000L
-                                        | true      ->                       0b00100000000000000000L)                                        
+                                        | true      ->                       0b00100000000000000000L) |||
+
+                     (match inlineIfLambda with
+                                        | false     ->                      0b000000000000000000000L
+                                        | true      ->                      0b100000000000000000000L)                                        
 
         ValFlags flags
 
@@ -166,7 +166,7 @@ type ValFlags(flags: int64) =
 
     member x.InlineInfo = 
                                   match (flags       &&&                     0b00000000000000110000L) with 
-                                                             |               0b00000000000000000000L -> ValInline.PseudoVal
+                                                             |               0b00000000000000000000L
                                                              |               0b00000000000000010000L -> ValInline.Always
                                                              |               0b00000000000000100000L -> ValInline.Optional
                                                              |               0b00000000000000110000L -> ValInline.Never
@@ -203,36 +203,40 @@ type ValFlags(flags: int64) =
 
     member x.WithRecursiveValInfo recValInfo = 
             let flags = 
-                     (flags       &&&                                    ~~~0b00000001100000000000L) |||
+                     (flags       &&&                                      ~~~0b00000001100000000000L) |||
                      (match recValInfo with
-                                     | ValNotInRecScope     ->              0b00000000000000000000L
-                                     | ValInRecScope true  ->               0b00000000100000000000L
-                                     | ValInRecScope false ->               0b00000001000000000000L) 
+                                     | ValNotInRecScope     ->                0b00000000000000000000L
+                                     | ValInRecScope true  ->                 0b00000000100000000000L
+                                     | ValInRecScope false ->                 0b00000001000000000000L) 
             ValFlags flags
 
-    member x.MakesNoCriticalTailcalls         =                   (flags &&& 0b00000010000000000000L) <> 0L
+    member x.MakesNoCriticalTailcalls         =                   (flags &&& 0b000000010000000000000L) <> 0L
 
-    member x.WithMakesNoCriticalTailcalls =               ValFlags(flags ||| 0b00000010000000000000L)
+    member x.WithMakesNoCriticalTailcalls =               ValFlags(flags ||| 0b000000010000000000000L)
 
-    member x.PermitsExplicitTypeInstantiation =                   (flags &&& 0b00000100000000000000L) <> 0L
+    member x.PermitsExplicitTypeInstantiation =                   (flags &&& 0b000000100000000000000L) <> 0L
 
-    member x.HasBeenReferenced                =                   (flags &&& 0b00001000000000000000L) <> 0L
+    member x.HasBeenReferenced                =                   (flags &&& 0b000001000000000000000L) <> 0L
 
-    member x.WithHasBeenReferenced                     =  ValFlags(flags ||| 0b00001000000000000000L)
+    member x.WithHasBeenReferenced                     =  ValFlags(flags ||| 0b000001000000000000000L)
 
-    member x.IsCompiledAsStaticPropertyWithoutField =             (flags &&& 0b00010000000000000000L) <> 0L
+    member x.IsCompiledAsStaticPropertyWithoutField =             (flags &&& 0b000010000000000000000L) <> 0L
 
-    member x.WithIsCompiledAsStaticPropertyWithoutField = ValFlags(flags ||| 0b00010000000000000000L)
+    member x.WithIsCompiledAsStaticPropertyWithoutField = ValFlags(flags ||| 0b000010000000000000000L)
 
-    member x.IsGeneratedEventVal =                                (flags &&& 0b00100000000000000000L) <> 0L
+    member x.IsGeneratedEventVal =                                (flags &&& 0b000100000000000000000L) <> 0L
 
-    member x.IsFixed                                =             (flags &&& 0b01000000000000000000L) <> 0L
+    member x.IsFixed                                =             (flags &&& 0b001000000000000000000L) <> 0L
 
-    member x.WithIsFixed                               =  ValFlags(flags ||| 0b01000000000000000000L)
+    member x.WithIsFixed                               =  ValFlags(flags ||| 0b001000000000000000000L)
 
-    member x.IgnoresByrefScope                         =          (flags &&& 0b10000000000000000000L) <> 0L
+    member x.IgnoresByrefScope                         =          (flags &&& 0b010000000000000000000L) <> 0L
 
-    member x.WithIgnoresByrefScope                     =  ValFlags(flags ||| 0b10000000000000000000L)
+    member x.WithIgnoresByrefScope                     =  ValFlags(flags ||| 0b010000000000000000000L)
+
+    member x.InlineIfLambda                            =          (flags &&& 0b100000000000000000000L) <> 0L
+
+    member x.WithInlineIfLambda                        =  ValFlags(flags ||| 0b100000000000000000000L)
 
     /// Get the flags as included in the F# binary metadata
     member x.PickledBits = 
@@ -240,7 +244,7 @@ type ValFlags(flags: int64) =
         // Clear the IsCompiledAsStaticPropertyWithoutField, only used to determine whether to use a true field for a value, and to eliminate the optimization info for observable bindings
         // Clear the HasBeenReferenced, only used to report "unreferenced variable" warnings and to help collect 'it' values in FSI.EXE
         // Clear the IsGeneratedEventVal, since there's no use in propagating specialname information for generated add/remove event vals
-                                                      (flags       &&&    ~~~0b10011001100000000000L) 
+                                                      (flags       &&&    ~~~0b010011001100000000000L) 
 
 /// Represents the kind of a type parameter
 [<RequireQualifiedAccess (* ; StructuredFormatDisplay("{DebugText}") *) >]
@@ -2706,6 +2710,9 @@ type Val =
     /// Get the inline declaration on the value
     member x.InlineInfo = x.val_flags.InlineInfo
 
+    /// Get the inline declaration on a parameter or other non-function-declaration value, used for optimization
+    member x.InlineIfLambda = x.val_flags.InlineIfLambda
+
     /// Indicates whether the inline declaration for the value indicate that the value must be inlined?
     member x.MustInline = x.InlineInfo.MustInline
 
@@ -3769,6 +3776,9 @@ type ValRef =
 
     /// Get the inline declaration on the value
     member x.InlineInfo = x.Deref.InlineInfo
+
+    /// Get the inline declaration on a parameter or other non-function-declaration value, used for optimization
+    member x.InlineIfLambda = x.Deref.InlineIfLambda
 
     /// Indicates whether the inline declaration for the value indicate that the value must be inlined?
     member x.MustInline = x.Deref.MustInline
@@ -5602,7 +5612,7 @@ type Construct() =
     /// Create a new Val node
     static member NewVal 
            (logicalName: string, m: range, compiledName, ty, isMutable, isCompGen, arity, access,
-            recValInfo, specialRepr, baseOrThis, attribs, inlineInfo, doc: XmlDoc, isModuleOrMemberBinding,
+            recValInfo, specialRepr, baseOrThis, attribs, inlineInfo, inlineIfLambda, doc: XmlDoc, isModuleOrMemberBinding,
             isExtensionMember, isIncrClassSpecialMember, isTyFunc, allowTypeInst, isGeneratedEventVal,
             konst, actualParent) : Val =
 
@@ -5611,7 +5621,7 @@ type Construct() =
             val_stamp = stamp
             val_logical_name = logicalName
             val_range = m
-            val_flags = ValFlags(recValInfo, baseOrThis, isCompGen, inlineInfo, isMutable, isModuleOrMemberBinding, isExtensionMember, isIncrClassSpecialMember, isTyFunc, allowTypeInst, isGeneratedEventVal)
+            val_flags = ValFlags(recValInfo, baseOrThis, isCompGen, inlineInfo, inlineIfLambda, isMutable, isModuleOrMemberBinding, isExtensionMember, isIncrClassSpecialMember, isTyFunc, allowTypeInst, isGeneratedEventVal)
             val_type = ty
             val_opt_data =
                 match compiledName, arity, konst, access, doc, specialRepr, actualParent, attribs with

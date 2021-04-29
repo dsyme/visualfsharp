@@ -53,6 +53,8 @@ val mkSynNamedField: ident:Ident * ty:SynType * m:range -> SynField
 
 val mkSynPatVar: vis:SynAccess option -> id:Ident -> SynPat
 
+val mkSynPatVar2: vis:SynAccess option -> isInline: bool -> isMutable: bool -> id:Ident -> SynPat
+
 val mkSynThisPatVar: id:Ident -> SynPat
 
 val mkSynPatMaybeVar: lidwd:LongIdentWithDots -> vis:SynAccess option -> m:range -> SynPat
@@ -234,7 +236,7 @@ val mkSynBindingRhs: staticOptimizations:(SynStaticOptimizationConstraint list *
 
 val mkSynBinding:
     xmlDoc:PreXmlDoc * headPat:SynPat ->
-      vis:SynAccess option * isInline:bool * isMutable:bool * mBind:range * 
+      vis:SynAccess option * mBind:range * 
       spBind:DebugPointAtBinding * retInfo:SynReturnInfo option * origRhsExpr:SynExpr * mRhs:range *
       staticOptimizations:(SynStaticOptimizationConstraint list * SynExpr) list * attrs:SynAttributes * memberFlagsOpt:SynMemberFlags option 
         -> SynBinding

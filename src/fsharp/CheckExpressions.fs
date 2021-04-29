@@ -1073,34 +1073,36 @@ type PrelimValScheme1 =
     | PrelimValScheme1 of 
         id: Ident * 
         explicitTyparInfo: ExplicitTyparInfo * 
-        TType * 
-        PartialValReprInfo option *
-        PreValMemberInfo option * 
-        bool * 
-        ValInline * 
-        ValBaseOrThisInfo * 
-        ArgAndRetAttribs * 
-        SynAccess option * 
-        bool
+        ty: TType * 
+        partialValReprInfo: PartialValReprInfo option *
+        memberInfoOpt: PreValMemberInfo option * 
+        isMutable: bool * 
+        inlineInfo: ValInline * 
+        inlineIfLambda: bool * 
+        baseOrThis: ValBaseOrThisInfo * 
+        argAttribs: ArgAndRetAttribs * 
+        vis: SynAccess option * 
+        compgen: bool
 
-    member x.Type = let (PrelimValScheme1(_, _, ty, _, _, _, _, _, _, _, _)) = x in ty
+    member x.Type = let (PrelimValScheme1(ty=ty)) = x in ty
 
-    member x.Ident = let (PrelimValScheme1(id, _, _, _, _, _, _, _, _, _, _)) = x in id
+    member x.Ident = let (PrelimValScheme1(id=id)) = x in id
     
 /// The results of applying let-style generalization after type checking. 
 // We should make this a record for cleaner code
 type PrelimValScheme2 = 
     PrelimValScheme2 of 
-        Ident * 
-        TypeScheme * 
-        PartialValReprInfo option *
-        PreValMemberInfo option * 
-        bool * 
-        ValInline * 
-        ValBaseOrThisInfo * 
-        ArgAndRetAttribs * 
-        SynAccess option * 
-        bool *
+        id: Ident * 
+        typeScheme: TypeScheme * 
+        partialValReprInfo: PartialValReprInfo option *
+        memberInfoOpt: PreValMemberInfo option * 
+        isMutable: bool * 
+        inlineInfo: ValInline * 
+        inlineIfLambda: bool * 
+        baseOrThis: ValBaseOrThisInfo * 
+        argAttribs: ArgAndRetAttribs * 
+        vis: SynAccess option * 
+        compgen: bool *
         bool (* hasDeclaredTypars *) 
         
 
@@ -1113,6 +1115,7 @@ type ValScheme =
         memberInfo: PreValMemberInfo option * 
         isMutable: bool *
         inlineInfo: ValInline * 
+        inlineIfLambda: bool * 
         baseOrThisInfo: ValBaseOrThisInfo * 
         visibility: SynAccess option * 
         compgen: bool *
@@ -1120,11 +1123,11 @@ type ValScheme =
         isTyFunc: bool *
         hasDeclaredTypars: bool
 
-    member x.GeneralizedTypars = let (ValScheme(_, TypeScheme(gtps, _), _, _, _, _, _, _, _, _, _, _)) = x in gtps
+    member x.GeneralizedTypars = let (ValScheme(typeScheme=TypeScheme(gtps, _))) = x in gtps
 
-    member x.TypeScheme = let (ValScheme(_, ts, _, _, _, _, _, _, _, _, _, _)) = x in ts
+    member x.TypeScheme = let (ValScheme(typeScheme=ts)) = x in ts
 
-    member x.ValReprInfo = let (ValScheme(_, _, topValInfo, _, _, _, _, _, _, _, _, _)) = x in topValInfo
+    member x.ValReprInfo = let (ValScheme(topValInfo=topValInfo)) = x in topValInfo
         
 /// Translation of patterns is split into three phases. The first collects names. 
 /// The second is run after val_specs have been created for those names and inference 
@@ -1141,11 +1144,10 @@ type TcPatPhase2Input =
 /// "NameMap<PrelimValScheme1>". 
 type CheckedBindingInfo = 
     | CheckedBindingInfo of 
-       inlineFlag: ValInline * 
        valAttribs: Attribs * 
        xmlDoc: XmlDoc * 
        tcPatPhase2: (TcPatPhase2Input -> PatternMatchCompilation.Pattern) * 
-       exlicitTyparInfo: ExplicitTyparInfo * 
+       explicitTyparInfo: ExplicitTyparInfo * 
        nameToPrelimValSchemeMap: NameMap<PrelimValScheme1> * 
        rhsExprChecked: Expr * 
        argAndRetAttribs: ArgAndRetAttribs * 
@@ -1155,8 +1157,8 @@ type CheckedBindingInfo =
        isCompilerGenerated: bool *
        literalValue: Const option *
        isFixed: bool
-    member x.Expr = let (CheckedBindingInfo(_, _, _, _, _, _, expr, _, _, _, _, _, _, _)) = x in expr
-    member x.SeqPoint = let (CheckedBindingInfo(_, _, _, _, _, _, _, _, _, _, spBind, _, _, _)) = x in spBind
+    member x.Expr = let (CheckedBindingInfo(_, _, _, _, _, expr, _, _, _, _, _, _, _)) = x in expr
+    member x.SeqPoint = let (CheckedBindingInfo(_, _, _, _, _, _, _, _, _, spBind, _, _, _)) = x in spBind
 
 /// Return the generalized type for a type scheme
 let GeneralizedTypeForTypeScheme typeScheme = 
@@ -1293,7 +1295,7 @@ let CheckForAbnormalOperatorNames cenv (idRange: range) coreDisplayName (memberI
 
 let MakeAndPublishVal cenv env (altActualParent, inSig, declKind, vrec, vscheme, attrs, doc, konst, isGeneratedEventVal) =
 
-    let (ValScheme(id, typeScheme, topValData, memberInfoOpt, isMutable, inlineFlag, baseOrThis, vis, compgen, isIncrClass, isTyFunc, hasDeclaredTypars)) = vscheme
+    let (ValScheme(id, typeScheme, topValData, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, vis, compgen, isIncrClass, isTyFunc, hasDeclaredTypars)) = vscheme
 
     let ty = GeneralizedTypeForTypeScheme typeScheme
 
@@ -1331,9 +1333,9 @@ let MakeAndPublishVal cenv env (altActualParent, inSig, declKind, vrec, vscheme,
                     
     let vis, _ = ComputeAccessAndCompPath env (Some declKind) id.idRange vis overrideVis actualParent
 
-    let inlineFlag = 
+    let inlineInfo = 
         if HasFSharpAttributeOpt cenv.g cenv.g.attrib_DllImportAttribute attrs then 
-            if inlineFlag = ValInline.PseudoVal || inlineFlag = ValInline.Always then 
+            if inlineInfo = ValInline.Always then 
               errorR(Error(FSComp.SR.tcDllImportStubsCannotBeInlined(), m)) 
             ValInline.Never 
         else 
@@ -1346,7 +1348,7 @@ let MakeAndPublishVal cenv env (altActualParent, inSig, declKind, vrec, vscheme,
             if (implflags &&& NO_INLINING) <> 0x0 then
                 ValInline.Never
             else
-                inlineFlag
+                inlineInfo
 
     // CompiledName not allowed on virtual/abstract/override members        
     let compiledNameAttrib = TryFindFSharpStringAttribute cenv.g cenv.g.attrib_CompiledNameAttribute attrs
@@ -1394,13 +1396,13 @@ let MakeAndPublishVal cenv env (altActualParent, inSig, declKind, vrec, vscheme,
             None
 
     let mut = if isMutable then Mutable else Immutable
+
     let vspec = 
         Construct.NewVal
             (logicalName, id.idRange, compiledName, ty, mut,
-             compgen, topValData, vis, vrec, memberInfoOpt, baseOrThis, attrs, inlineFlag,
+             compgen, topValData, vis, vrec, memberInfoOpt, baseOrThis, attrs, inlineInfo, inlineIfLambda,
              doc, isTopBinding, isExtrinsic, isIncrClass, isTyFunc, 
              (hasDeclaredTypars || inSig), isGeneratedEventVal, konst, actualParent)
-
     
     CheckForAbnormalOperatorNames cenv id.idRange vspec.CoreDisplayName memberInfoOpt
 
@@ -1438,7 +1440,7 @@ let MakeAndPublishVals cenv env (altActualParent, inSig, declKind, vrec, valSche
 let MakeAndPublishBaseVal cenv env baseIdOpt ty = 
     baseIdOpt
     |> Option.map (fun (id: Ident) ->
-       let valscheme = ValScheme(id, NonGenericTypeScheme ty, None, None, false, ValInline.Never, BaseVal, None, false, false, false, false)
+       let valscheme = ValScheme(id, NonGenericTypeScheme ty, None, None, false, ValInline.Never, false, BaseVal, None, false, false, false, false)
        MakeAndPublishVal cenv env (ParentNone, false, ExpressionBinding, ValNotInRecScope, valscheme, [], XmlDoc.Empty, None, false))
 
 // Make the "delayed reference" value where the this pointer will reside after calling the base class constructor
@@ -1450,7 +1452,7 @@ let MakeAndPublishSafeThisVal cenv env (thisIdOpt: Ident option) thisTy =
         if not (isFSharpObjModelTy cenv.g thisTy) then 
             errorR(Error(FSComp.SR.tcStructsCanOnlyBindThisAtMemberDeclaration(), thisId.idRange))
 
-        let valScheme = ValScheme(thisId, NonGenericTypeScheme(mkRefCellTy cenv.g thisTy), None, None, false, ValInline.Never, CtorThisVal, None, false, false, false, false)
+        let valScheme = ValScheme(thisId, NonGenericTypeScheme(mkRefCellTy cenv.g thisTy), None, None, false, ValInline.Never, false, CtorThisVal, None, false, false, false, false)
         Some(MakeAndPublishVal cenv env (ParentNone, false, ExpressionBinding, ValNotInRecScope, valScheme, [], XmlDoc.Empty, None, false))
 
     | None -> 
@@ -1493,10 +1495,10 @@ let AdjustAndForgetUsesOfRecValue cenv (vrefTgt: ValRef) (valScheme: ValScheme) 
      
 
 /// Set the properties of recursive values that are only fully known after inference is complete 
-let AdjustRecType (vspec: Val) (ValScheme(_, typeScheme, topValData, _, _, _, _, _, _, _, _, _)) =
+let AdjustRecType (vspec: Val) (ValScheme(typeScheme=typeScheme; topValInfo=topValInfo)) =
     let fty = GeneralizedTypeForTypeScheme typeScheme
     vspec.SetType fty
-    vspec.SetValReprInfo topValData
+    vspec.SetValReprInfo topValInfo
     vspec.SetValRec (ValInRecScope true)
        
 /// Record the generated value expression as a place where we will have to 
@@ -1536,11 +1538,11 @@ let ChooseCanonicalDeclaredTyparsAfterInference g denv declaredTypars m =
     declaredTypars
 
 let ChooseCanonicalValSchemeAfterInference g denv vscheme m =
-    let (ValScheme(id, typeScheme, arityInfo, memberInfoOpt, isMutable, inlineFlag, baseOrThis, vis, compgen, isIncrClass, isTyFunc, hasDeclaredTypars)) = vscheme
+    let (ValScheme(id, typeScheme, arityInfo, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, vis, compgen, isIncrClass, isTyFunc, hasDeclaredTypars)) = vscheme
     let (TypeScheme(generalizedTypars, ty)) = typeScheme
     let generalizedTypars = ChooseCanonicalDeclaredTyparsAfterInference g denv generalizedTypars m
     let typeScheme = TypeScheme(generalizedTypars, ty)
-    let valscheme = ValScheme(id, typeScheme, arityInfo, memberInfoOpt, isMutable, inlineFlag, baseOrThis, vis, compgen, isIncrClass, isTyFunc, hasDeclaredTypars)
+    let valscheme = ValScheme(id, typeScheme, arityInfo, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, vis, compgen, isIncrClass, isTyFunc, hasDeclaredTypars)
     valscheme
 
 let PlaceTyparsInDeclarationOrder declaredTypars generalizedTypars =
@@ -1556,8 +1558,8 @@ let SetTyparRigid denv m (tp: Typar) =
             errorR(Error(FSComp.SR.tcTypeParameterHasBeenConstrained(NicePrint.prettyStringOfTy denv ty), tp.Range))
     tp.SetRigidity TyparRigidity.Rigid
 
-let GeneralizeVal cenv denv enclosingDeclaredTypars generalizedTyparsForThisBinding 
-        (PrelimValScheme1(id, explicitTyparInfo, ty, partialValReprInfo, memberInfoOpt, isMutable, inlineFlag, baseOrThis, argAttribs, vis, compgen)) = 
+let GeneralizeVal cenv denv enclosingDeclaredTypars generalizedTyparsForThisBinding vscheme =
+    let (PrelimValScheme1(id, explicitTyparInfo, ty, partialValReprInfo, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, argAttribs, vis, compgen)) = vscheme
 
     let (ExplicitTyparInfo(_rigidCopyOfDeclaredTypars, declaredTypars, _)) = explicitTyparInfo
 
@@ -1589,14 +1591,14 @@ let GeneralizeVal cenv denv enclosingDeclaredTypars generalizedTyparsForThisBind
     let hasDeclaredTypars = not (isNil declaredTypars)
     // This is just about the only place we form a TypeScheme 
     let tyScheme = TypeScheme(generalizedTypars, ty)
-    PrelimValScheme2(id, tyScheme, partialValReprInfo, memberInfoOpt, isMutable, inlineFlag, baseOrThis, argAttribs, vis, compgen, hasDeclaredTypars)
+    PrelimValScheme2(id, tyScheme, partialValReprInfo, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, argAttribs, vis, compgen, hasDeclaredTypars)
 
 let GeneralizeVals cenv denv enclosingDeclaredTypars generalizedTypars types = 
     NameMap.map (GeneralizeVal cenv denv enclosingDeclaredTypars generalizedTypars) types
 
 let DontGeneralizeVals types = 
-    let dontGeneralizeVal (PrelimValScheme1(id, _, ty, partialValReprInfoOpt, memberInfoOpt, isMutable, inlineFlag, baseOrThis, argAttribs, vis, compgen)) = 
-        PrelimValScheme2(id, NonGenericTypeScheme ty, partialValReprInfoOpt, memberInfoOpt, isMutable, inlineFlag, baseOrThis, argAttribs, vis, compgen, false)
+    let dontGeneralizeVal (PrelimValScheme1(id, _, ty, partialValReprInfoOpt, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, argAttribs, vis, compgen)) = 
+        PrelimValScheme2(id, NonGenericTypeScheme ty, partialValReprInfoOpt, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, argAttribs, vis, compgen, false)
     NameMap.map dontGeneralizeVal types
 
 let InferGenericArityFromTyScheme (TypeScheme(generalizedTypars, _)) partialValReprInfo =
@@ -1648,7 +1650,7 @@ let UseSyntacticArity declKind typeScheme partialValReprInfo =
 //        member x.M(v: unit) = () }
 //
 let CombineSyntacticAndInferredArities g declKind rhsExpr prelimScheme = 
-    let (PrelimValScheme2(_, typeScheme, partialValReprInfoOpt, memberInfoOpt, isMutable, _, _, ArgAndRetAttribs(argAttribs, retAttribs), _, _, _)) = prelimScheme
+    let (PrelimValScheme2(_, typeScheme, partialValReprInfoOpt, memberInfoOpt, isMutable, _, _, _, ArgAndRetAttribs(argAttribs, retAttribs), _, _, _)) = prelimScheme
     match partialValReprInfoOpt, DeclKind.MustHaveArity declKind with
     | _, false -> None
     | None, true -> Some(PartialValReprInfo([], ValReprInfo.unnamedRetVal))
@@ -1690,14 +1692,14 @@ let CombineSyntacticAndInferredArities g declKind rhsExpr prelimScheme =
         Some partialArityInfo
 
 let BuildValScheme declKind partialArityInfoOpt prelimScheme = 
-    let (PrelimValScheme2(id, typeScheme, _, memberInfoOpt, isMutable, inlineFlag, baseOrThis, _, vis, compgen, hasDeclaredTypars)) = prelimScheme
+    let (PrelimValScheme2(id, typeScheme, _, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, _, vis, compgen, hasDeclaredTypars)) = prelimScheme
     let topValInfo = 
         if DeclKind.MustHaveArity declKind then 
             Option.map (InferGenericArityFromTyScheme typeScheme) partialArityInfoOpt
         else
             None
     let isTyFunc = ComputeIsTyFunc(id, hasDeclaredTypars, topValInfo)
-    ValScheme(id, typeScheme, topValInfo, memberInfoOpt, isMutable, inlineFlag, baseOrThis, vis, compgen, false, isTyFunc, hasDeclaredTypars)
+    ValScheme(id, typeScheme, topValInfo, memberInfoOpt, isMutable, inlineInfo, inlineIfLambda, baseOrThis, vis, compgen, false, isTyFunc, hasDeclaredTypars)
 
 let UseCombinedArity g declKind rhsExpr prelimScheme = 
     let partialArityInfoOpt = CombineSyntacticAndInferredArities g declKind rhsExpr prelimScheme 
@@ -2047,10 +2049,10 @@ module GeneralizationHelpers =
     /// For non-generalized type variables be careful to iteratively knock out 
     /// both the typars and any typars free in the constraints of the typars
     /// into the set that are considered free in the environment. 
-    let rec TrimUngeneralizableTypars genConstrainedTyparFlag inlineFlag (generalizedTypars: Typar list) freeInEnv = 
+    let rec TrimUngeneralizableTypars genConstrainedTyparFlag inlineInfo (generalizedTypars: Typar list) freeInEnv = 
         // Do not generalize type variables with a static requirement unless function is marked 'inline' 
         let generalizedTypars, ungeneralizableTypars1 =  
-            if inlineFlag = ValInline.PseudoVal then generalizedTypars, []
+            if inlineInfo = ValInline.Always then generalizedTypars, []
             else generalizedTypars |> List.partition (fun tp -> tp.StaticReq = TyparStaticReq.None) 
 
         // Do not generalize type variables which would escape their scope 
@@ -2077,7 +2079,7 @@ module GeneralizationHelpers =
                         (accFreeInTypars CollectAllNoCaching ungeneralizableTypars2 
                             (accFreeInTypars CollectAllNoCaching ungeneralizableTypars3 emptyFreeTyvars))).FreeTypars 
                     freeInEnv
-            TrimUngeneralizableTypars genConstrainedTyparFlag inlineFlag generalizedTypars freeInEnv
+            TrimUngeneralizableTypars genConstrainedTyparFlag inlineInfo generalizedTypars freeInEnv
 
     /// Condense type variables in positive position
     let CondenseTypars (cenv, denv: DisplayEnv, generalizedTypars: Typars, tauTy, m) =
@@ -2141,7 +2143,7 @@ module GeneralizationHelpers =
                                            freeInEnv: FreeTypars,
                                            canInferTypars,
                                            genConstrainedTyparFlag,
-                                           inlineFlag,
+                                           inlineInfo,
                                            exprOpt,
                                            allDeclaredTypars: Typars,
                                            maxInferredTypars: Typars,
@@ -2155,7 +2157,7 @@ module GeneralizationHelpers =
             else allDeclaredTypars
 
         let generalizedTypars, freeInEnv = 
-            TrimUngeneralizableTypars genConstrainedTyparFlag inlineFlag typarsToAttemptToGeneralize freeInEnv
+            TrimUngeneralizableTypars genConstrainedTyparFlag inlineInfo typarsToAttemptToGeneralize freeInEnv
 
         allDeclaredTypars 
         |> List.iter (fun tp -> 
@@ -2228,7 +2230,7 @@ module GeneralizationHelpers =
 //-------------------------------------------------------------------------
 
 let ComputeInlineFlag (memFlagsOption: SynMemberFlags option) isInline isMutable m = 
-    let inlineFlag = 
+    let inlineInfo = 
         // Mutable values may never be inlined 
         // Constructors may never be inlined 
         // Calls to virtual/abstract slots may never be inlined 
@@ -2237,11 +2239,11 @@ let ComputeInlineFlag (memFlagsOption: SynMemberFlags option) isInline isMutable
             | None -> false
             | Some x -> (x.MemberKind = SynMemberKind.Constructor) || x.IsDispatchSlot || x.IsOverrideOrExplicitImpl) 
         then ValInline.Never 
-        elif isInline then ValInline.PseudoVal 
+        elif isInline then ValInline.Always
         else ValInline.Optional
-    if isInline && (inlineFlag <> ValInline.PseudoVal) then 
+    if isInline && (inlineInfo <> ValInline.Always) then 
         errorR(Error(FSComp.SR.tcThisValueMayNotBeInlined(), m))
-    inlineFlag
+    inlineInfo
 
 
 //-------------------------------------------------------------------------
@@ -2291,7 +2293,11 @@ let PushOnePatternToRhs (cenv: cenv) isMember p (NormalizedBindingRhs(spatsL, rt
     NormalizedBindingRhs(spats :: spatsL, rtyOpt, rhsExpr)
 
 type NormalizedBindingPatternInfo = 
-    NormalizedBindingPat of SynPat * NormalizedBindingRhs * SynValData * SynValTyparDecls 
+    NormalizedBindingPat of
+        SynPat *
+        NormalizedBindingRhs *
+        SynValData *
+        SynValTyparDecls 
 
 /// Represents a syntactic, unchecked binding after the resolution of the name resolution status of pattern
 /// constructors and after "pushing" all complex patterns to the right hand side.
@@ -2299,8 +2305,6 @@ type NormalizedBinding =
   | NormalizedBinding of 
       visibility: SynAccess option *
       kind: SynBindingKind *
-      mustInline: bool *
-      isMutable: bool *
       attribs: SynAttribute list * 
       xmlDoc: XmlDoc *
       typars: SynValTyparDecls * 
@@ -2322,14 +2326,18 @@ module BindingNormalization =
         NormalizedBindingRhs(spatsL2@spatsL, rtyOpt, rhsExpr)
 
 
-    let private MakeNormalizedStaticOrValBinding cenv isObjExprBinding id vis typars args rhsExpr valSynData = 
+    let private MakeNormalizedStaticOrValBinding cenv isObjExprBinding id vis typars args rhsExpr valSynData isInline isMutable = 
         let (SynValData(memberFlagsOpt, _, _)) = valSynData 
-        NormalizedBindingPat(mkSynPatVar vis id, PushMultiplePatternsToRhs cenv ((isObjExprBinding = ObjExprBinding) || Option.isSome memberFlagsOpt) args rhsExpr, valSynData, typars)
+        let patForId = mkSynPatVar2 vis isInline isMutable id
+        let rhsExprAfterPush = PushMultiplePatternsToRhs cenv ((isObjExprBinding = ObjExprBinding) || Option.isSome memberFlagsOpt) args rhsExpr
+        NormalizedBindingPat(patForId, rhsExprAfterPush, valSynData, typars)
 
-    let private MakeNormalizedInstanceMemberBinding cenv thisId memberId toolId vis m typars args rhsExpr valSynData = 
-        NormalizedBindingPat(SynPat.InstanceMember(thisId, memberId, toolId, vis, m), PushMultiplePatternsToRhs cenv true args rhsExpr, valSynData, typars)
+    let private MakeNormalizedInstanceMemberBinding cenv thisId memberId toolId vis m typars args rhsExpr valSynData isInline = 
+        let patForId = SynPat.InstanceMember(thisId, memberId, toolId, isInline, vis, m)
+        let rhsExprAfterPush = PushMultiplePatternsToRhs cenv true args rhsExpr
+        NormalizedBindingPat(patForId, rhsExprAfterPush, valSynData, typars)
 
-    let private NormalizeStaticMemberBinding cenv (memberFlags: SynMemberFlags) valSynData id vis typars args m rhsExpr = 
+    let private NormalizeStaticMemberBinding cenv (memberFlags: SynMemberFlags) valSynData id vis typars args m rhsExpr isInline isMutable = 
         let (SynValData(_, valSynInfo, thisIdOpt)) = valSynData 
         if memberFlags.IsInstance then 
             // instance method without adhoc "this" argument 
@@ -2339,19 +2347,19 @@ module BindingNormalization =
         | [], SynMemberKind.ClassConstructor -> error(Error(FSComp.SR.tcStaticInitializerRequiresArgument(), m))
         | [], SynMemberKind.Constructor -> error(Error(FSComp.SR.tcObjectConstructorRequiresArgument(), m))
         | [_], SynMemberKind.ClassConstructor  
-        | [_], SynMemberKind.Constructor -> MakeNormalizedStaticOrValBinding cenv ValOrMemberBinding id vis typars args rhsExpr valSynData
+        | [_], SynMemberKind.Constructor -> MakeNormalizedStaticOrValBinding cenv ValOrMemberBinding id vis typars args rhsExpr valSynData isInline isMutable
         // Static property declared using 'static member P = expr': transformed to a method taking a "unit" argument 
         // static property: these transformed into methods taking one "unit" argument 
         | [], SynMemberKind.Member -> 
             let memberFlags = {memberFlags with MemberKind = SynMemberKind.PropertyGet} 
             let valSynData = SynValData(Some memberFlags, valSynInfo, thisIdOpt)
-            NormalizedBindingPat(mkSynPatVar vis id, 
+            NormalizedBindingPat(mkSynPatVar2 vis isInline isMutable id, 
                                  PushOnePatternToRhs cenv true (SynPat.Const(SynConst.Unit, m)) rhsExpr, 
                                  valSynData, 
                                  typars)
-        | _ -> MakeNormalizedStaticOrValBinding cenv ValOrMemberBinding id vis typars args rhsExpr valSynData
+        | _ -> MakeNormalizedStaticOrValBinding cenv ValOrMemberBinding id vis typars args rhsExpr valSynData isInline isMutable
 
-    let private NormalizeInstanceMemberBinding cenv (memberFlags: SynMemberFlags) valSynData thisId memberId (toolId: Ident option) vis typars args m rhsExpr = 
+    let private NormalizeInstanceMemberBinding cenv (memberFlags: SynMemberFlags) valSynData thisId memberId (toolId: Ident option) vis typars args m rhsExpr isInline = 
         let (SynValData(_, valSynInfo, thisIdOpt)) = valSynData 
         if not memberFlags.IsInstance then 
             // static method with adhoc "this" argument 
@@ -2365,13 +2373,13 @@ module BindingNormalization =
         | [], SynMemberKind.Member -> 
             let memberFlags = {memberFlags with MemberKind = SynMemberKind.PropertyGet}
             NormalizedBindingPat
-                (SynPat.InstanceMember(thisId, memberId, toolId, vis, m), 
+                (SynPat.InstanceMember(thisId, memberId, toolId, isInline, vis, m), 
                  PushOnePatternToRhs cenv true (SynPat.Const(SynConst.Unit, m)) rhsExpr, 
                  // Update the member info to record that this is a SynMemberKind.PropertyGet 
                  SynValData(Some memberFlags, valSynInfo, thisIdOpt), 
                  typars)
 
-        | _ -> MakeNormalizedInstanceMemberBinding cenv thisId memberId toolId vis m typars args rhsExpr valSynData
+        | _ -> MakeNormalizedInstanceMemberBinding cenv thisId memberId toolId vis m typars args rhsExpr valSynData isInline
 
     let private NormalizeBindingPattern cenv nameResolver isObjExprBinding (env: TcEnv) valSynData pat rhsExpr =
         let ad = env.AccessRights
@@ -2381,7 +2389,7 @@ module BindingNormalization =
             // of available items, to the point that you can't even define a function with the same name as an existing union case. 
             match pat with 
             | SynPat.FromParseError(p, _) -> normPattern p
-            | SynPat.LongIdent (LongIdentWithDots(longId, _), toolId, tyargs, SynArgPats.Pats args, vis, m) ->
+            | SynPat.LongIdent (LongIdentWithDots(longId, _), toolId, tyargs, isInline, isMutable, SynArgPats.Pats args, vis, m) ->
                 let typars = match tyargs with None -> inferredTyparDecls | Some typars -> typars
                 match memberFlagsOpt with 
                 | None ->                
@@ -2392,28 +2400,28 @@ module BindingNormalization =
                         else
                             if isObjExprBinding = ObjExprBinding then 
                                 errorR(Deprecated(FSComp.SR.tcObjectExpressionFormDeprecated(), m))
-                            MakeNormalizedStaticOrValBinding cenv isObjExprBinding id vis typars args rhsExpr valSynData
+                            MakeNormalizedStaticOrValBinding cenv isObjExprBinding id vis typars args rhsExpr valSynData isInline isMutable
                     | _ -> 
                         error(Error(FSComp.SR.tcInvalidDeclaration(), m))
 
                 | Some memberFlags ->                
                     match longId with 
                     // x.Member in member binding patterns. 
-                    | [thisId;memberId] -> NormalizeInstanceMemberBinding cenv memberFlags valSynData thisId memberId toolId vis typars args m rhsExpr 
-                    | [memberId] -> NormalizeStaticMemberBinding cenv memberFlags valSynData memberId vis typars args m rhsExpr 
+                    | [thisId;memberId] -> NormalizeInstanceMemberBinding cenv memberFlags valSynData thisId memberId toolId vis typars args m rhsExpr isInline
+                    | [memberId] -> NormalizeStaticMemberBinding cenv memberFlags valSynData memberId vis typars args m rhsExpr isInline isMutable
                     | _ -> NormalizedBindingPat(pat, rhsExpr, valSynData, typars)
 
             // Object constructors are normalized in TcLetrec 
             // Here we are normalizing member definitions with simple (not long) ids, 
             // e.g. "static member x = 3" and "member x = 3" (instance with missing "this." comes through here. It is trapped and generates a warning) 
-            | SynPat.Named (SynPat.Wild _, id, false, vis, m) 
+            | SynPat.Named (None, id, false, isInline, isMutable, vis, m) 
                 when 
                    (match memberFlagsOpt with 
                     | None -> false 
                     | Some memberFlags -> 
                          memberFlags.MemberKind <> SynMemberKind.Constructor &&
                          memberFlags.MemberKind <> SynMemberKind.ClassConstructor) ->            
-                NormalizeStaticMemberBinding cenv (Option.get memberFlagsOpt) valSynData id vis inferredTyparDecls [] m rhsExpr 
+                NormalizeStaticMemberBinding cenv (Option.get memberFlagsOpt) valSynData id vis inferredTyparDecls [] m rhsExpr isInline isMutable
 
             | SynPat.Typed(pat', x, y) ->             
                 let (NormalizedBindingPat(pat'', e'', valSynData, typars)) = normPattern pat'
@@ -2428,12 +2436,12 @@ module BindingNormalization =
 
     let NormalizeBinding isObjExprBinding cenv (env: TcEnv) binding = 
         match binding with 
-        | SynBinding (vis, bkind, isInline, isMutable, Attributes attrs, doc, valSynData, p, retInfo, rhsExpr, mBinding, spBind) ->
+        | SynBinding (vis, bkind, Attributes attrs, doc, valSynData, p, retInfo, rhsExpr, mBinding, spBind) ->
             let (NormalizedBindingPat(pat, rhsExpr, valSynData, typars)) = 
                 NormalizeBindingPattern cenv cenv.nameResolver isObjExprBinding env valSynData p (NormalizedBindingRhs ([], retInfo, rhsExpr))
             let paramNames = Some valSynData.SynValInfo.ArgNames
             let doc = doc.ToXmlDoc(true, paramNames)
-            NormalizedBinding(vis, bkind, isInline, isMutable, attrs, doc, typars, valSynData, pat, rhsExpr, mBinding, spBind)
+            NormalizedBinding(vis, bkind, attrs, doc, typars, valSynData, pat, rhsExpr, mBinding, spBind)
 
 //-------------------------------------------------------------------------
 // input is:
@@ -2473,14 +2481,14 @@ module EventDeclarationNormalization =
         match declPattern with  
         | SynPat.FromParseError(p, _) -> RenameBindingPattern f p
         | SynPat.Typed(pat', _, _) -> RenameBindingPattern f pat'
-        | SynPat.Named (SynPat.Wild m1, id, x2, vis2, m) -> SynPat.Named (SynPat.Wild m1, ident(f id.idText, id.idRange), x2, vis2, m) 
-        | SynPat.InstanceMember(thisId, id, toolId, vis2, m) -> SynPat.InstanceMember(thisId, ident(f id.idText, id.idRange), toolId, vis2, m)
+        | SynPat.Named (None, id, isThisVal, isInline, isMutable, vis2, m) -> SynPat.Named (None, ident(f id.idText, id.idRange), isThisVal, isInline, isMutable, vis2, m) 
+        | SynPat.InstanceMember(thisId, id, toolId, vis2, isInline, m) -> SynPat.InstanceMember(thisId, ident(f id.idText, id.idRange), toolId, vis2, isInline, m)
         | _ -> error(Error(FSComp.SR.tcOnlySimplePatternsInLetRec(), declPattern.Range))
 
     /// Some F# bindings syntactically imply additional bindings, notably properties
     /// annotated with [<CLIEvent>]
     let GenerateExtraBindings cenv (bindingAttribs, binding) =
-        let (NormalizedBinding(vis1, bindingKind, isInline, isMutable, _, bindingXmlDoc, _synTyparDecls, valSynData, declPattern, bindingRhs, mBinding, spBind)) = binding
+        let (NormalizedBinding(vis1, bindingKind, _, bindingXmlDoc, _synTyparDecls, valSynData, declPattern, bindingRhs, mBinding, spBind)) = binding
         if CompileAsEvent cenv.g bindingAttribs then 
 
             let MakeOne (prefix, target) = 
@@ -2509,7 +2517,7 @@ module EventDeclarationNormalization =
                        error(BadEventTransformation m)
 
                 // reconstitute the binding
-                NormalizedBinding(vis1, bindingKind, isInline, isMutable, [], bindingXmlDoc, noInferredTypars, valSynData, declPattern, bindingRhs, mBinding, spBind) 
+                NormalizedBinding(vis1, bindingKind, [], bindingXmlDoc, noInferredTypars, valSynData, declPattern, bindingRhs, mBinding, spBind) 
 
             [ MakeOne ("add_", "AddHandler"); MakeOne ("remove_", "RemoveHandler") ]
         else 
@@ -3776,7 +3784,7 @@ type RecursiveBindingInfo =
           recBindIndex: int * // index of the binding in the recursive group
           containerInfo: ContainerInfo * 
           enclosingDeclaredTypars: Typars * 
-          inlineFlag: ValInline * 
+          inlineInfo: ValInline * 
           vspec: Val * 
           explicitTyparInfo: ExplicitTyparInfo * 
           partialValReprInfo: PartialValReprInfo * 
@@ -4654,10 +4662,10 @@ and TryAdjustHiddenVarNameToCompGenName cenv env (id: Ident) altNameRefCellOpt =
 /// Bind the patterns used in a lambda. Not clear why we don't use TcPat.
 and TcSimplePat optArgsOK checkCxs cenv ty env (tpenv, names, takenNames) p = 
     match p with 
-    | SynSimplePat.Id (id, altNameRefCellOpt, compgen, isMemberThis, isOpt, m) -> 
+    | SynSimplePat.Id (id, altNameRefCellOpt, compgen, isMemberThis, isInline, isMutable, isOpt, m) -> 
         // Check to see if pattern translation decides to use an alternative identifier.
         match TryAdjustHiddenVarNameToCompGenName cenv env id altNameRefCellOpt with 
-        | Some altId -> TcSimplePat optArgsOK checkCxs cenv ty env (tpenv, names, takenNames) (SynSimplePat.Id (altId, None, compgen, isMemberThis, isOpt, m) )
+        | Some altId -> TcSimplePat optArgsOK checkCxs cenv ty env (tpenv, names, takenNames) (SynSimplePat.Id (altId, None, compgen, isMemberThis, isInline, isMutable, isOpt, m) )
         | None -> 
             if isOpt then 
                 if not optArgsOK then 
@@ -4666,7 +4674,9 @@ and TcSimplePat optArgsOK checkCxs cenv ty env (tpenv, names, takenNames) p =
                 let tyarg = NewInferenceType ()
                 UnifyTypes cenv env m ty (mkOptionTy cenv.g tyarg)
                     
-            let _, names, takenNames = TcPatBindingName cenv env id ty isMemberThis None None (ValInline.Optional, permitInferTypars, noArgOrRetAttribs, false, None, compgen) (names, takenNames)
+            let _, names, takenNames =
+                let vFlags = ([], permitInferTypars, noArgOrRetAttribs, None, compgen, None, false, false, false, DeclKind.ExpressionBinding, false, false)
+                TcPatBindingName cenv env id ty isMemberThis isInline isMutable None None vFlags (names, takenNames)
             id.idText, 
             (tpenv, names, takenNames)
 
@@ -4674,7 +4684,7 @@ and TcSimplePat optArgsOK checkCxs cenv ty env (tpenv, names, takenNames) p =
         let cty', tpenv = TcTypeAndRecover cenv NewTyparsOK checkCxs ItemOccurence.UseInType env tpenv cty
         match p with 
         // Optional arguments on members 
-        | SynSimplePat.Id(_, _, _, _, true, _) -> UnifyTypes cenv env m ty (mkOptionTy cenv.g cty')
+        | SynSimplePat.Id(isOptional=true) -> UnifyTypes cenv env m ty (mkOptionTy cenv.g cty')
         | _ -> UnifyTypes cenv env m ty cty'
 
         TcSimplePat optArgsOK checkCxs cenv ty env (tpenv, names, takenNames) p
@@ -4692,7 +4702,7 @@ and ValidateOptArgOrder (spats: SynSimplePats) =
         
     let rec isOptArg pat =
         match pat with
-        | SynSimplePat.Id (_, _, _, _, isOpt, _) -> isOpt
+        | SynSimplePat.Id (isOptional=isOpt) -> isOpt
         | SynSimplePat.Typed (p, _, _) -> isOptArg p
         | SynSimplePat.Attrib (p, _, _) -> isOptArg p        
         
@@ -4721,7 +4731,9 @@ and TcSimplePats cenv optArgsOK checkCxs ty env (tpenv, names, takenNames: Set<_
         // patterns used in argument position, e.g. "let f (D(x)) = ..."
         let id = ident("unitVar" + string takenNames.Count, m)
         UnifyTypes cenv env m ty cenv.g.unit_ty
-        let _, names, takenNames = TcPatBindingName cenv env id ty false None None (ValInline.Optional, permitInferTypars, noArgOrRetAttribs, false, None, true) (names, takenNames)
+        let _, names, takenNames =
+            let vFlags = ([], permitInferTypars, noArgOrRetAttribs, None, true, None, false, false, false, DeclKind.ExpressionBinding, false, false)
+            TcPatBindingName cenv env id ty false false false None None vFlags (names, takenNames)
         [id.idText], (tpenv, names, takenNames)
 
     | SynSimplePats.SimplePats ([p], _) -> 
@@ -4738,7 +4750,7 @@ and TcSimplePats cenv optArgsOK checkCxs ty env (tpenv, names, takenNames: Set<_
 
         match p with 
         // Solitary optional arguments on members 
-        | SynSimplePats.SimplePats([SynSimplePat.Id(_, _, _, _, true, _)], _) -> UnifyTypes cenv env m ty (mkOptionTy cenv.g cty')
+        | SynSimplePats.SimplePats([SynSimplePat.Id(isOptional=true)], _) -> UnifyTypes cenv env m ty (mkOptionTy cenv.g cty')
         | _ -> UnifyTypes cenv env m ty cty'
 
         TcSimplePats cenv optArgsOK checkCxs ty env (tpenv, names, takenNames) p
@@ -4747,12 +4759,47 @@ and TcSimplePatsOfUnknownType cenv optArgsOK checkCxs env tpenv spats =
     let argty = NewInferenceType ()
     TcSimplePats cenv optArgsOK checkCxs argty env (tpenv, NameMap.empty, Set.empty) spats
 
-and TcPatBindingName cenv env id ty isMemberThis vis1 topValData (inlineFlag, declaredTypars, argAttribs, isMutable, vis2, compgen) (names, takenNames: Set<string>) = 
+and TcPatBindingName 
+       cenv env id ty isMemberThis isInline isMutable vis1 topValData
+       vFlags
+       (names, takenNames: Set<string>) = 
+
+    let (declaredTypars, explicitTyparInfo, argAttribs, vis2, compgen, memberFlagsOpt, isVolatile, isThreadStatic, isFixed, declKind, hasLiteralAttr, isFunction) = vFlags
     let vis = if Option.isSome vis1 then vis1 else vis2
     if takenNames.Contains id.idText then errorR (VarBoundTwice id)
     let compgen = compgen || IsCompilerGeneratedName id.idText
     let baseOrThis = if isMemberThis then MemberThisVal else NormalVal
-    let names = Map.add id.idText (PrelimValScheme1(id, declaredTypars, ty, topValData, None, isMutable, inlineFlag, baseOrThis, argAttribs, vis, compgen)) names
+
+    if isVolatile then 
+        if (not isMutable || isThreadStatic) then 
+            errorR(Error(FSComp.SR.tcVolatileFieldsMustBeMutable(), id.idRange))
+
+    if isFixed && (declKind <> ExpressionBinding || isInline || isMutable) then
+        errorR(Error(FSComp.SR.tcFixedNotAllowed(), id.idRange))
+
+    if isMutable && isInline then errorR(Error(FSComp.SR.tcMutableValuesCannotBeInline(), id.idRange))
+
+    if isMutable && not (isNil declaredTypars) then errorR(Error(FSComp.SR.tcMutableValuesMayNotHaveGenericParameters(), id.idRange))
+
+    let explicitTyparInfo = if isMutable then dontInferTypars else explicitTyparInfo
+
+    if isMutable && isFunction then errorR(Error(FSComp.SR.tcMutableValuesSyntax(), id.idRange))
+
+    let isInline, inlineIfLambda = 
+        if isInline && not isFunction && isNil declaredTypars then 
+            //errorR(Error(FSComp.SR.tcOnlyFunctionsCanBeInline(), id.idRange))
+            false, true
+        else 
+            isInline, false
+    let inlineInfo = ComputeInlineFlag memberFlagsOpt isInline isMutable id.idRange
+
+    if hasLiteralAttr then
+        if isMutable then 
+            errorR(Error(FSComp.SR.tcLiteralCannotBeMutable(), id.idRange))
+        if isInline then 
+            errorR(Error(FSComp.SR.tcLiteralCannotBeInline(), id.idRange))
+
+    let names = Map.add id.idText (PrelimValScheme1(id, explicitTyparInfo, ty, topValData, None, isMutable, inlineInfo, inlineIfLambda, baseOrThis, argAttribs, vis, compgen)) names
     let takenNames = Set.add id.idText takenNames
     (fun (TcPatPhase2Input (values, isLeftMost)) -> 
         let (vspec, typeScheme) =
@@ -4820,27 +4867,28 @@ and TcPat warnOnUpper cenv env topValInfo vFlags (tpenv, names, takenNames) ty p
     | SynPat.Wild m ->
         (fun _ -> TPat_wild m), (tpenv, names, takenNames)
 
-    | SynPat.IsInst(cty, m) 
-    | SynPat.Named (SynPat.IsInst(cty, m), _, _, _, _) -> 
+    | SynPat.IsInst(cty, m) ->
         let srcTy = ty
         let tgtTy, tpenv = TcTypeAndRecover cenv NewTyparsOKButWarnIfNotRigid CheckCxs ItemOccurence.UseInType env tpenv cty
         TcRuntimeTypeTest (*isCast*)false (*isOperator*)true cenv env.DisplayEnv m tgtTy srcTy
-        match pat with 
-        | SynPat.IsInst(_, m) ->
-            (fun _ -> TPat_isinst (srcTy, tgtTy, None, m)), (tpenv, names, takenNames)
-        | SynPat.Named (SynPat.IsInst _, id, isMemberThis, vis, m) -> 
-            let bindf, names, takenNames = TcPatBindingName cenv env id tgtTy isMemberThis vis None vFlags (names, takenNames)
-            (fun values -> TPat_isinst (srcTy, tgtTy, Some(bindf values), m)), 
-            (tpenv, names, takenNames)
-        | _ -> failwith "TcPat"
+        (fun _ -> TPat_isinst (srcTy, tgtTy, None, m)), (tpenv, names, takenNames)
+
+    | SynPat.Named (Some (SynPat.IsInst(cty, m)), id, isMemberThis, isInline, isMutable, vis, _) -> 
+        let srcTy = ty
+        let tgtTy, tpenv = TcTypeAndRecover cenv NewTyparsOKButWarnIfNotRigid CheckCxs ItemOccurence.UseInType env tpenv cty
+        TcRuntimeTypeTest (*isCast*)false (*isOperator*)true cenv env.DisplayEnv m tgtTy srcTy
+        let bindf, names, takenNames = TcPatBindingName cenv env id tgtTy isMemberThis isInline isMutable vis None vFlags (names, takenNames)
+        (fun values -> TPat_isinst (srcTy, tgtTy, Some(bindf values), m)), 
+        (tpenv, names, takenNames)
 
     | SynPat.OptionalVal (id, m) -> 
         errorR (Error (FSComp.SR.tcOptionalArgsOnlyOnMembers (), m))
-        let bindf, names, takenNames = TcPatBindingName cenv env id ty false None topValInfo vFlags (names, takenNames)
+        let bindf, names, takenNames = TcPatBindingName cenv env id ty false false false None topValInfo vFlags (names, takenNames)
         (fun values -> TPat_as (TPat_wild m, bindf values, m)), (tpenv, names, takenNames)
 
-    | SynPat.Named (p, id, isMemberThis, vis, m) -> 
-        let bindf, names, takenNames = TcPatBindingName cenv env id ty isMemberThis vis topValInfo vFlags (names, takenNames)
+    | SynPat.Named (p, id, isMemberThis, isInline, isMutable, vis, m) -> 
+        let p = match p with None -> SynPat.Wild m | Some p -> p
+        let bindf, names, takenNames = TcPatBindingName cenv env id ty isMemberThis isInline isMutable vis topValInfo vFlags (names, takenNames)
         let pat', acc = TcPat warnOnUpper cenv env None vFlags (tpenv, names, takenNames) ty p
         (fun values -> TPat_as (pat' values, bindf values, m)), 
         acc
@@ -4862,9 +4910,9 @@ and TcPat warnOnUpper cenv env topValInfo vFlags (tpenv, names, takenNames) ty p
         if not (takenNames1 = takenNames2) then
             errorR (UnionPatternsBindDifferentNames m)
 
-        names1 |> Map.iter (fun _ (PrelimValScheme1 (id1, _, ty1, _, _, _, _, _, _, _, _)) -> 
+        names1 |> Map.iter (fun _ (PrelimValScheme1 (id=id1; ty= ty1)) -> 
             match names2.TryGetValue id1.idText with 
-            | true, PrelimValScheme1 (id2, _, ty2, _, _, _, _, _, _, _, _) ->
+            | true, PrelimValScheme1 (id=id2; ty=ty2) ->
                 try UnifyTypes cenv env id2.idRange ty1 ty2
                 with e -> errorRecovery e m
             | _ -> ())
@@ -4877,7 +4925,7 @@ and TcPat warnOnUpper cenv env topValInfo vFlags (tpenv, names, takenNames) ty p
         let pats', acc = TcPatterns warnOnUpper cenv env vFlags (tpenv, names, takenNames) (List.map (fun _ -> ty) pats) pats
         (fun values -> TPat_conjs(List.map (fun f -> f values) pats', m)), acc
 
-    | SynPat.LongIdent (LongIdentWithDots(longId, _), _, tyargs, args, vis, m) ->
+    | SynPat.LongIdent (LongIdentWithDots(longId, _), _, tyargs, isInline, isMutable, args, vis, m) ->
         if Option.isSome tyargs then errorR(Error(FSComp.SR.tcInvalidTypeArgumentUsage(), m))
         let warnOnUpperForId = 
             match args with
@@ -4907,9 +4955,9 @@ and TcPat warnOnUpper cenv env topValInfo vFlags (tpenv, names, takenNames) ty p
             match x with
             | SynPat.FromParseError(p, _) -> convSynPatToSynExpr p
             | SynPat.Const (c, m) -> SynExpr.Const (c, m)
-            | SynPat.Named (SynPat.Wild _, id, _, None, _) -> SynExpr.Ident id
+            | SynPat.Named (None, id, _, false, false, None, _) -> SynExpr.Ident id
             | SynPat.Typed (p, cty, m) -> SynExpr.Typed (convSynPatToSynExpr p, cty, m)
-            | SynPat.LongIdent (LongIdentWithDots(longId, dotms) as lidwd, _, _tyargs, args, None, m) ->
+            | SynPat.LongIdent (LongIdentWithDots(longId, dotms) as lidwd, _, _tyargs, false, false, args, None, m) ->
                 let args = match args with SynArgPats.Pats args -> args | _ -> failwith "impossible: active patterns can be used only with SynConstructorArgs.Pats"
                 let e =
                     if dotms.Length = longId.Length then
@@ -4936,7 +4984,8 @@ and TcPat warnOnUpper cenv env topValInfo vFlags (tpenv, names, takenNames) ty p
         | Item.NewDef id -> 
             match getArgPatterns () with
             | [] ->
-                TcPat warnOnUpperForId cenv env topValInfo vFlags (tpenv, names, takenNames) ty (mkSynPatVar vis id)
+                let vpat = mkSynPatVar2 vis isInline isMutable id
+                TcPat warnOnUpperForId cenv env topValInfo vFlags (tpenv, names, takenNames) ty vpat
 
             | [arg]
                 when cenv.g.langVersion.SupportsFeature LanguageFeature.NameOf && isNameof id ->
@@ -5205,7 +5254,7 @@ and TcPat warnOnUpper cenv env topValInfo vFlags (tpenv, names, takenNames) ty p
         with e -> errorRecovery e m
         (fun _ -> TPat_null m), (tpenv, names, takenNames)
 
-    | SynPat.InstanceMember (_, _, _, _, m) -> 
+    | SynPat.InstanceMember (range=m) -> 
         errorR(Error(FSComp.SR.tcIllegalPattern(), pat.Range))
         (fun _ -> TPat_wild m), (tpenv, names, takenNames)
 
@@ -6204,12 +6253,12 @@ and TcRecordConstruction cenv overallTy env tpenv optOrigExprInfo objTy fldsList
 //------------------------------------------------------------------------- 
 
 and GetNameAndArityOfObjExprBinding _cenv _env b =
-    let (NormalizedBinding (_, _, _, _, _, _, _, valSynData, pat, rhsExpr, mBinding, _)) = b
+    let (NormalizedBinding (_, _, _, _, _, valSynData, pat, rhsExpr, mBinding, _)) = b
     let (SynValData(memberFlagsOpt, valSynInfo, _)) = valSynData 
     match pat, memberFlagsOpt with 
 
     // This is the normal case for F# 'with member x.M(...) = ...'
-    | SynPat.InstanceMember(_thisId, memberId, _, None, _), Some memberFlags ->
+    | SynPat.InstanceMember(_thisId, memberId, _, _, None, _), Some memberFlags ->
          let logicalMethId = ident (ComputeLogicalName memberId memberFlags, memberId.idRange)
          logicalMethId.idText, valSynInfo
 
@@ -6219,7 +6268,7 @@ and GetNameAndArityOfObjExprBinding _cenv _env b =
             match pat with 
             | SynPat.Typed(pat, _, _) -> lookPat pat
             | SynPat.FromParseError(pat, _) -> lookPat pat
-            | SynPat.Named (SynPat.Wild _, id, _, None, _) -> 
+            | SynPat.Named (None, id, _, false, false, None, _) -> 
                 let (NormalizedBindingRhs(pushedPats, _, _)) = rhsExpr
                 let infosForExplicitArgs = pushedPats |> List.map SynInfo.InferSynArgInfoFromSimplePats
                 let infosForExplicitArgs = SynInfo.AdjustMemberArgs SynMemberKind.Member infosForExplicitArgs
@@ -6234,7 +6283,7 @@ and GetNameAndArityOfObjExprBinding _cenv _env b =
 
 
 and FreshenObjExprAbstractSlot cenv (env: TcEnv) (implty: TType) virtNameAndArityPairs (bind, bindAttribs, bindName, absSlots:(_ * MethInfo) list) = 
-    let (NormalizedBinding (_, _, _, _, _, _, synTyparDecls, _, _, _, mBinding, _)) = bind
+    let (NormalizedBinding (_, _, _, _, synTyparDecls, _, _, _, mBinding, _)) = bind
     match absSlots with 
     | [] when not (CompileAsEvent cenv.g bindAttribs) -> 
         let absSlotsByName = List.filter (fst >> fst >> (=) bindName) virtNameAndArityPairs
@@ -6289,28 +6338,31 @@ and FreshenObjExprAbstractSlot cenv (env: TcEnv) (implty: TType) virtNameAndArit
 
 and TcObjectExprBinding cenv (env: TcEnv) implty tpenv (absSlotInfo, bind) =
     // 4a1. normalize the binding (note: needlessly repeating what we've done above) 
-    let (NormalizedBinding(vis, bkind, isInline, isMutable, attrs, doc, synTyparDecls, valSynData, p, bindingRhs, mBinding, spBind)) = bind
+    let (NormalizedBinding(vis, bkind, attrs, doc, synTyparDecls, valSynData, p, bindingRhs, mBinding, spBind)) = bind
     let (SynValData(memberFlagsOpt, _, _)) = valSynData 
     // 4a2. adjust the binding, especially in the "member" case, a subset of the logic of AnalyzeAndMakeAndPublishRecursiveValue 
-    let bindingRhs, logicalMethId, memberFlags = 
+    let bindingRhs, logicalMethPat, memberFlags = 
         let rec lookPat p = 
             match p, memberFlagsOpt with  
             | SynPat.FromParseError(pat, _), _ -> lookPat pat
-            | SynPat.Named (SynPat.Wild _, id, _, _, _), None -> 
+            | SynPat.Named (None, id, _, isInline, isMutable, _, _), None -> 
                 let bindingRhs = PushOnePatternToRhs cenv true (mkSynThisPatVar (ident (CompilerGeneratedName "this", id.idRange))) bindingRhs 
                 let logicalMethId = id
                 let memberFlags = OverrideMemberFlags SynMemberKind.Member
-                bindingRhs, logicalMethId, memberFlags
+                let logicalMethPat = mkSynPatVar2 vis isInline isMutable logicalMethId
+                bindingRhs, logicalMethPat, memberFlags
 
-            | SynPat.InstanceMember(thisId, memberId, _, _, _), Some memberFlags -> 
+            | SynPat.InstanceMember(thisId, memberId, _, isInline, _, _), Some memberFlags -> 
                 CheckMemberFlags None NewSlotsOK OverridesOK memberFlags mBinding
                 let bindingRhs = PushOnePatternToRhs cenv true (mkSynThisPatVar thisId) bindingRhs
                 let logicalMethId = ident (ComputeLogicalName memberId memberFlags, memberId.idRange)
-                bindingRhs, logicalMethId, memberFlags
+                let logicalMethPat = mkSynPatVar2 vis isInline false logicalMethId
+                bindingRhs, logicalMethPat, memberFlags
             | _ -> 
                 error(InternalError("unexpected member binding", mBinding))
         lookPat p
-    let bind = NormalizedBinding (vis, bkind, isInline, isMutable, attrs, doc, synTyparDecls, valSynData, mkSynPatVar vis logicalMethId, bindingRhs, mBinding, spBind) 
+    
+    let bind = NormalizedBinding (vis, bkind, attrs, doc, synTyparDecls, valSynData, logicalMethPat, bindingRhs, mBinding, spBind) 
     
     // 4b. typecheck the binding 
     let bindingTy = 
@@ -6320,14 +6372,14 @@ and TcObjectExprBinding cenv (env: TcEnv) implty tpenv (absSlotInfo, bind) =
         | _ -> 
             implty --> NewInferenceType ()
 
-    let (CheckedBindingInfo(inlineFlag, bindingAttribs, _, _, ExplicitTyparInfo(_, declaredTypars, _), nameToPrelimValSchemeMap, rhsExpr, _, _, m, _, _, _, _), tpenv) = 
+    let (CheckedBindingInfo(bindingAttribs, _, _, ExplicitTyparInfo(_, declaredTypars, _), nameToPrelimValSchemeMap, rhsExpr, _, _, m, _, _, _, _), tpenv) = 
         let explicitTyparInfo, tpenv = TcNonrecBindingTyparDecls cenv env tpenv bind
         TcNormalizedBinding ObjectExpressionOverrideBinding cenv env tpenv bindingTy None NoSafeInitInfo ([], explicitTyparInfo) bind
 
     // 4c. generalize the binding - only relevant when implementing a generic virtual method 
     
     match NameMap.range nameToPrelimValSchemeMap with 
-    | [PrelimValScheme1(id, _, _, _, _, _, _, _, _, _, _)] -> 
+    | [PrelimValScheme1(id=id; inlineInfo=inlineInfo)] -> 
         let denv = env.DisplayEnv
 
         let declaredTypars = 
@@ -6341,7 +6393,7 @@ and TcObjectExprBinding cenv (env: TcEnv) implty tpenv (absSlotInfo, bind) =
 
         let freeInEnv = GeneralizationHelpers.ComputeUngeneralizableTypars env
 
-        let generalizedTypars = GeneralizationHelpers.ComputeAndGeneralizeGenericTypars(cenv, denv, m, freeInEnv, false, CanGeneralizeConstrainedTypars, inlineFlag, Some rhsExpr, declaredTypars, [], bindingTy, false)
+        let generalizedTypars = GeneralizationHelpers.ComputeAndGeneralizeGenericTypars(cenv, denv, m, freeInEnv, false, CanGeneralizeConstrainedTypars, inlineInfo, Some rhsExpr, declaredTypars, [], bindingTy, false)
         let declaredTypars = ChooseCanonicalDeclaredTyparsAfterInference cenv.g env.DisplayEnv declaredTypars m
 
         let generalizedTypars = PlaceTyparsInDeclarationOrder declaredTypars generalizedTypars  
@@ -6366,7 +6418,7 @@ and ComputeObjectExprOverrides cenv (env: TcEnv) tpenv impls =
             // Generate extra bindings fo object expressions with bindings using the CLIEvent attribute
             let binds, bindsAttributes = 
                [ for binding in binds do
-                     let (NormalizedBinding(_, _, _, _, bindingSynAttribs, _, _, valSynData, _, _, _, _)) = binding
+                     let (NormalizedBinding(_, _, bindingSynAttribs, _, _, valSynData, _, _, _, _)) = binding
                      let (SynValData(memberFlagsOpt, _, _)) = valSynData 
                      let attrTgt = DeclKind.AllowedAttribTargets memberFlagsOpt ObjectExpressionOverrideBinding
                      let bindingAttribs = TcAttributes cenv env attrTgt bindingSynAttribs
@@ -6455,7 +6507,7 @@ and TcObjectExpr cenv overallTy env tpenv (synObjTy, argopt, binds, extraImpls, 
         let fldsList = 
             binds |> List.map (fun b -> 
                 match BindingNormalization.NormalizeBinding ObjExprBinding cenv env b with 
-                | NormalizedBinding (_, _, _, _, [], _, _, _, SynPat.Named(SynPat.Wild _, id, _, _, _), NormalizedBindingRhs(_, _, rhsExpr), _, _) -> id.idText, rhsExpr
+                | NormalizedBinding (_, _, [], _, _, _, SynPat.Named(None, id, _, false, false, _, _), NormalizedBindingRhs(_, _, rhsExpr), _, _) -> id.idText, rhsExpr
                 | _ -> error(Error(FSComp.SR.tcOnlySimpleBindingsCanBeUsedInConstructionExpressions(), b.RangeOfBindingWithoutRhs)))
         
         TcRecordConstruction cenv overallTy env tpenv None objTy fldsList mWholeExpr
@@ -9069,11 +9121,11 @@ and bindLetRec (binds: Bindings) m e =
 and CheckRecursiveBindingIds binds =
     let hashOfBinds = new HashSet<string>()
             
-    for (SynBinding.SynBinding(_, _, _, _, _, _, _, b, _, _, m, _)) in binds do
+    for (SynBinding.SynBinding(_, _, _, _, _, b, _, _, m, _)) in binds do
         let nm =
             match b with
-            | SynPat.Named(_, id, _, _, _) -> id.idText
-            | SynPat.LongIdent(LongIdentWithDots([id], _), _, _, _, _, _) -> id.idText
+            | SynPat.Named(_, id, _, _, _, _, _) -> id.idText
+            | SynPat.LongIdent(LongIdentWithDots([id], _), _, _, _, _, _, _, _) -> id.idText
             | _ -> ""
         if nm <> "" && not (hashOfBinds.Add nm) then
             error(Duplicate("value", nm, m))
@@ -9149,7 +9201,9 @@ and TcAndPatternCompileMatchClauses mExpr matchm actionOnFailure cenv inputExprO
 
 and TcMatchPattern cenv inputTy env tpenv (pat: SynPat, optWhenExpr: SynExpr option) =
     let m = pat.Range
-    let patf', (tpenv, names, _) = TcPat WarnOnUpperCase cenv env None (ValInline.Optional, permitInferTypars, noArgOrRetAttribs, false, None, false) (tpenv, Map.empty, Set.empty) inputTy pat
+    let patf', (tpenv, names, _) =
+        let vFlags = ([], permitInferTypars, noArgOrRetAttribs, None, false, None, false, false, false, DeclKind.ExpressionBinding, false, false)
+        TcPat WarnOnUpperCase cenv env None vFlags (tpenv, Map.empty, Set.empty) inputTy pat
     let envinner, values, vspecMap = MakeAndPublishSimpleValsForMergedScope cenv env m names 
     let optWhenExpr', tpenv = 
         match optWhenExpr with
@@ -9268,13 +9322,13 @@ and TcNormalizedBinding declKind (cenv: cenv) env tpenv overallTy safeThisValOpt
 
     match bind with 
 
-    | NormalizedBinding(vis, bkind, isInline, isMutable, attrs, doc, _, valSynData, pat, NormalizedBindingRhs(spatsL, rtyOpt, rhsExpr), mBinding, spBind) ->
+    | NormalizedBinding(vis, bkind, attrs, doc, _, valSynData, pat, NormalizedBindingRhs(spatsL, rtyOpt, rhsExpr), mBinding, spBind) ->
         let (SynValData(memberFlagsOpt, valSynInfo, _)) = valSynData 
 
         let callerName = 
             match declKind, bkind, pat with
             | ExpressionBinding, _, _ -> envinner.eCallerMemberName
-            | _, _, SynPat.Named(_, name, _, _, _) -> 
+            | _, _, SynPat.Named(_, name, _, _, _, _, _) -> 
                 match memberFlagsOpt with
                 | Some memberFlags ->
                     match memberFlags.MemberKind with
@@ -9307,10 +9361,9 @@ and TcNormalizedBinding declKind (cenv: cenv) env tpenv overallTy safeThisValOpt
         let valAttribs = TcAttrs attrTgt attrs
         let isVolatile = HasFSharpAttribute cenv.g cenv.g.attrib_VolatileFieldAttribute valAttribs
         
-        let inlineFlag = ComputeInlineFlag memberFlagsOpt isInline isMutable mBinding
-
         let argAttribs = 
             spatsL |> List.map (SynInfo.InferSynArgInfoFromSimplePats >> List.map (SynInfo.AttribsOfArgData >> TcAttrs AttributeTargets.Parameter))
+
         let retAttribs = 
             match rtyOpt with 
             | Some (SynBindingReturnInfo(_, _, Attributes retAttrs)) -> TcAttrs AttributeTargets.ReturnValue retAttrs 
@@ -9320,7 +9373,7 @@ and TcNormalizedBinding declKind (cenv: cenv) env tpenv overallTy safeThisValOpt
 
         let isZeroMethod =
             match declKind, pat with
-            | ModuleOrMemberBinding, SynPat.Named(_, name, _, _, _) when name.idText = "Zero" -> 
+            | ModuleOrMemberBinding, SynPat.Named(ident=name) when name.idText = "Zero" -> 
                 match memberFlagsOpt with
                 | Some memberFlags ->
                     match memberFlags.MemberKind with
@@ -9340,12 +9393,6 @@ and TcNormalizedBinding declKind (cenv: cenv) env tpenv overallTy safeThisValOpt
             | ClassLetBinding(_) -> ()
             | _ -> errorR(Error(FSComp.SR.tcVolatileOnlyOnClassLetBindings(), mBinding))
 
-            if (not isMutable || isThreadStatic) then 
-                errorR(Error(FSComp.SR.tcVolatileFieldsMustBeMutable(), mBinding))
-
-        if isFixed && (declKind <> ExpressionBinding || isInline || isMutable) then
-            errorR(Error(FSComp.SR.tcFixedNotAllowed(), mBinding))
-
         if (not declKind.CanBeDllImport || (match memberFlagsOpt with Some memberFlags -> memberFlags.IsInstance | _ -> false)) &&
             HasFSharpAttributeOpt cenv.g cenv.g.attrib_DllImportAttribute valAttribs 
         then 
@@ -9360,34 +9407,22 @@ and TcNormalizedBinding declKind (cenv: cenv) env tpenv overallTy safeThisValOpt
             else 
                 UnifyTypes cenv env mBinding overallPatTy (mkArrayType cenv.g cenv.g.string_ty --> cenv.g.int_ty)
 
-        if isMutable && isInline then errorR(Error(FSComp.SR.tcMutableValuesCannotBeInline(), mBinding))
-
-        if isMutable && not (isNil declaredTypars) then errorR(Error(FSComp.SR.tcMutableValuesMayNotHaveGenericParameters(), mBinding))
-
-        let explicitTyparInfo = if isMutable then dontInferTypars else explicitTyparInfo
-
-        if isMutable && not (isNil spatsL) then errorR(Error(FSComp.SR.tcMutableValuesSyntax(), mBinding))
-
-        let isInline = 
-            if isInline && isNil spatsL && isNil declaredTypars then 
-                errorR(Error(FSComp.SR.tcOnlyFunctionsCanBeInline(), mBinding))
-                false
-            else 
-                isInline 
-
         let compgen = false
         
         // Use the syntactic arity if we're defining a function 
         let partialValReprInfo = TranslateTopValSynInfo mBinding (TcAttributes cenv env) valSynInfo
 
+        let isFunction = not (isNil spatsL)
+        let hasLiteralAttr = HasFSharpAttribute cenv.g cenv.g.attrib_LiteralAttribute valAttribs
         // Check the pattern of the l.h.s. of the binding 
         let tcPatPhase2, (tpenv, nameToPrelimValSchemeMap, _) = 
-            TcPat AllIdsOK cenv envinner (Some partialValReprInfo) (inlineFlag, explicitTyparInfo, argAndRetAttribs, isMutable, vis, compgen) (tpenv, NameMap.empty, Set.empty) overallPatTy pat
+            let vFlags = (declaredTypars, explicitTyparInfo, argAndRetAttribs, vis, compgen, memberFlagsOpt, isVolatile, isThreadStatic, isFixed, declKind, hasLiteralAttr, isFunction)
+            TcPat AllIdsOK cenv envinner (Some partialValReprInfo) vFlags (tpenv, NameMap.empty, Set.empty) overallPatTy pat
 
         // Add active pattern result names to the environment 
         let apinfoOpt = 
             match NameMap.range nameToPrelimValSchemeMap with 
-            | [PrelimValScheme1(id, _, ty, _, _, _, _, _, _, _, _) ] -> 
+            | [PrelimValScheme1(id=id; ty=ty) ] -> 
                 match ActivePatternInfoOfValName id.idText id.idRange with 
                 | Some apinfo -> Some (apinfo, ty, id.idRange)
                 | None -> None
@@ -9443,36 +9478,31 @@ and TcNormalizedBinding declKind (cenv: cenv) env tpenv overallTy safeThisValOpt
             ()
 
         // Check other attributes
-        let hasLiteralAttr, literalValue = TcLiteral cenv overallExprTy env tpenv (valAttribs, rhsExpr)
+        let literalValue = TcLiteral cenv overallExprTy env tpenv (hasLiteralAttr, rhsExpr)
 
         if hasLiteralAttr then
             if isThreadStatic then 
                 errorR(Error(FSComp.SR.tcIllegalAttributesForLiteral(), mBinding))
-            if isMutable then 
-                errorR(Error(FSComp.SR.tcLiteralCannotBeMutable(), mBinding))
-            if isInline then 
-                errorR(Error(FSComp.SR.tcLiteralCannotBeInline(), mBinding))
             if not (isNil declaredTypars) then 
                 errorR(Error(FSComp.SR.tcLiteralCannotHaveGenericParameters(), mBinding))
 
-        CheckedBindingInfo(inlineFlag, valAttribs, doc, tcPatPhase2, explicitTyparInfo, nameToPrelimValSchemeMap, rhsExprChecked, argAndRetAttribs, overallPatTy, mBinding, spBind, compgen, literalValue, isFixed), tpenv
+        CheckedBindingInfo(valAttribs, doc, tcPatPhase2, explicitTyparInfo, nameToPrelimValSchemeMap, rhsExprChecked, argAndRetAttribs, overallPatTy, mBinding, spBind, compgen, literalValue, isFixed), tpenv
 
-and TcLiteral cenv overallTy env tpenv (attrs, synLiteralValExpr) = 
-    let hasLiteralAttr = HasFSharpAttribute cenv.g cenv.g.attrib_LiteralAttribute attrs
+and TcLiteral cenv overallTy env tpenv (hasLiteralAttr, synLiteralValExpr) = 
     if hasLiteralAttr then 
         let literalValExpr, _ = TcExpr cenv overallTy env tpenv synLiteralValExpr
         match EvalLiteralExprOrAttribArg cenv.g literalValExpr with 
         | Expr.Const (c, _, ty) ->             
             if c = Const.Zero && isStructTy cenv.g ty then
                 warning(Error(FSComp.SR.tcIllegalStructTypeForConstantExpression(), synLiteralValExpr.Range))
-                false, None
+                None
             else
-                true, Some c
+                Some c
         | _ -> 
             errorR(Error(FSComp.SR.tcInvalidConstantExpression(), synLiteralValExpr.Range))
-            true, Some Const.Unit
+            Some Const.Unit
     
-    else hasLiteralAttr, None 
+    else None 
     
 and TcBindingTyparDecls alwaysRigid cenv env tpenv (SynValTyparDecls(synTypars, infer, synTyparConstraints)) = 
     let declaredTypars = TcTyparDecls cenv env synTypars
@@ -9494,7 +9524,7 @@ and TcBindingTyparDecls alwaysRigid cenv env tpenv (SynValTyparDecls(synTypars, 
     ExplicitTyparInfo(rigidCopyOfDeclaredTypars, declaredTypars, infer), tpenv
 
 and TcNonrecBindingTyparDecls cenv env tpenv bind = 
-    let (NormalizedBinding(_, _, _, _, _, _, synTyparDecls, _, _, _, _, _)) = bind
+    let (NormalizedBinding(_, _, _, _, synTyparDecls, _, _, _, _, _)) = bind
     TcBindingTyparDecls true cenv env tpenv synTyparDecls
 
 and TcNonRecursiveBinding declKind cenv env tpenv ty b =
@@ -9709,7 +9739,7 @@ and TcLetBinding cenv isUse env containerInfo declKind tpenv (synBinds, synBinds
     let denv = env.DisplayEnv
     ConstraintSolver.CanonicalizePartialInferenceProblem cenv.css denv synBindsRange
         (checkedBinds |> List.collect (fun tbinfo -> 
-            let (CheckedBindingInfo(_, _, _, _, explicitTyparInfo, _, _, _, tauTy, _, _, _, _, _)) = tbinfo
+            let (CheckedBindingInfo(_, _, _, explicitTyparInfo, _, _, _, tauTy, _, _, _, _, _)) = tbinfo
             let (ExplicitTyparInfo(_, declaredTypars, _)) = explicitTyparInfo
             let maxInferredTypars = (freeInTypeLeftToRight cenv.g false tauTy)
             declaredTypars @ maxInferredTypars))
@@ -9718,10 +9748,11 @@ and TcLetBinding cenv isUse env containerInfo declKind tpenv (synBinds, synBinds
 
     // Generalize the bindings...
     (((fun x -> x), env, tpenv), checkedBinds) ||> List.fold (fun (buildExpr, env, tpenv) tbinfo -> 
-        let (CheckedBindingInfo(inlineFlag, attrs, doc, tcPatPhase2, explicitTyparInfo, nameToPrelimValSchemeMap, rhsExpr, _, tauTy, m, spBind, _, literalValue, isFixed)) = tbinfo
+        let (CheckedBindingInfo(attrs, doc, tcPatPhase2, explicitTyparInfo, nameToPrelimValSchemeMap, rhsExpr, _, tauTy, m, spBind, _, literalValue, isFixed)) = tbinfo
         let enclosingDeclaredTypars = []
         let (ExplicitTyparInfo(_, declaredTypars, canInferTypars)) = explicitTyparInfo
         let allDeclaredTypars = enclosingDeclaredTypars @ declaredTypars
+        let inlineInfo = ComputeOverallInlineFlagForGeneralization tbinfo
         let generalizedTypars, prelimValSchemes2 = 
             let canInferTypars = GeneralizationHelpers. ComputeCanInferExtraGeneralizableTypars (containerInfo.ParentRef, canInferTypars, None)
 
@@ -9734,7 +9765,7 @@ and TcLetBinding cenv isUse env containerInfo declKind tpenv (synBinds, synBinds
                    let freeInEnv = lazyFreeInEnv.Force()
                    let canConstrain = GeneralizationHelpers.CanGeneralizeConstrainedTyparsForDecl declKind
                    GeneralizationHelpers.ComputeAndGeneralizeGenericTypars
-                       (cenv, denv, m, freeInEnv, canInferTypars, canConstrain, inlineFlag, Some rhsExpr, allDeclaredTypars, maxInferredTypars, tauTy, false)
+                       (cenv, denv, m, freeInEnv, canInferTypars, canConstrain, inlineInfo, Some rhsExpr, allDeclaredTypars, maxInferredTypars, tauTy, false)
 
             let prelimValSchemes2 = GeneralizeVals cenv denv enclosingDeclaredTypars generalizedTypars nameToPrelimValSchemeMap
 
@@ -9769,7 +9800,7 @@ and TcLetBinding cenv isUse env containerInfo declKind tpenv (synBinds, synBinds
                     v, pat
                     //Op (LValueOp (LByrefGet,x),[],[],C:\GitHub\dsyme\visualfsharp\a.fs (15,42--15,43) IsSynthetic=false)
 
-            | _ when inlineFlag.MustInline -> 
+            | _ when inlineInfo.MustInline -> 
                 error(Error(FSComp.SR.tcInvalidInlineSpecification(), m))
 
             | TPat_query _ when HasFSharpAttribute cenv.g cenv.g.attrib_LiteralAttribute attrs ->
@@ -10072,7 +10103,9 @@ and AnalyzeRecursiveStaticMemberOrValDecl
         ty, 
         bindingRhs,
         mBinding,
-        explicitTyparInfo) =
+        explicitTyparInfo,
+        isInline,
+        isMutable) =
 
     let vis = CombineVisibilityAttribs vis1 vis2 mBinding
 
@@ -10131,11 +10164,11 @@ and AnalyzeRecursiveStaticMemberOrValDecl
             let isExtrinsic = (declKind = ExtrinsicExtensionBinding)
             MakeMemberDataAndMangledNameForMemberVal(cenv.g, tcref, isExtrinsic, bindingAttribs, [], memberFlags, valSynInfo, id, false)
 
-        envinner, tpenv, id, None, Some memberInfo, vis, vis2, safeThisValOpt, enclosingDeclaredTypars, baseValOpt, explicitTyparInfo, bindingRhs, declaredTypars
+        envinner, tpenv, id, None, Some memberInfo, vis, vis2, safeThisValOpt, enclosingDeclaredTypars, baseValOpt, explicitTyparInfo, bindingRhs, declaredTypars, isInline, isMutable
         
     // non-member bindings. How easy. 
     | _ -> 
-        envinner, tpenv, id, None, None, vis, vis2, None, [], None, explicitTyparInfo, bindingRhs, declaredTypars
+        envinner, tpenv, id, None, None, vis, vis2, None, [], None, explicitTyparInfo, bindingRhs, declaredTypars, isInline, isMutable
     
 
 and AnalyzeRecursiveInstanceMemberDecl 
@@ -10158,7 +10191,8 @@ and AnalyzeRecursiveInstanceMemberDecl
         memberFlagsOpt,
         ty,
         bindingRhs,
-        mBinding) =
+        mBinding,
+        isInline) =
 
     let vis = CombineVisibilityAttribs vis1 vis2 mBinding
     let (ExplicitTyparInfo(_, declaredTypars, infer)) = explicitTyparInfo
@@ -10217,7 +10251,7 @@ and AnalyzeRecursiveInstanceMemberDecl
          //let memberId = match toolId with Some tid -> ident(memberId.idText, tid.idRange) | None -> memberId
          //ignore toolId
 
-         envinner, tpenv, memberId, toolId, Some memberInfo, vis, vis2, None, enclosingDeclaredTypars, baseValOpt, explicitTyparInfo, bindingRhs, declaredTypars
+         envinner, tpenv, memberId, toolId, Some memberInfo, vis, vis2, None, enclosingDeclaredTypars, baseValOpt, explicitTyparInfo, bindingRhs, declaredTypars, isInline, false
      | _ -> 
          error(Error(FSComp.SR.tcRecursiveBindingsWithMembersMustBeDirectAugmentation(), mBinding)) 
 
@@ -10261,23 +10295,23 @@ and AnalyzeRecursiveDecl
         //        let x = 1
         | SynPat.Const (SynConst.Unit, m) | SynPat.Wild m -> 
              let id = ident (cenv.niceNameGen.FreshCompilerGeneratedName("doval", m), m)
-             analyzeRecursiveDeclPat tpenv (SynPat.Named (SynPat.Wild m, id, false, None, m))
+             analyzeRecursiveDeclPat tpenv (SynPat.Named (None, id, false, false, false, None, m))
              
-        | SynPat.Named (SynPat.Wild _, id, _, vis2, _) -> 
+        | SynPat.Named (None, id, _, isInline, isMutable, vis2, _) -> 
             AnalyzeRecursiveStaticMemberOrValDecl 
                 (cenv, envinner, tpenv, declKind, 
                  newslotsOK, overridesOK, tcrefContainerInfo, 
                  vis1, id, vis2, declaredTypars, 
                  memberFlagsOpt, thisIdOpt, bindingAttribs, 
-                 valSynInfo, ty, bindingRhs, mBinding, explicitTyparInfo)
+                 valSynInfo, ty, bindingRhs, mBinding, explicitTyparInfo, isInline, isMutable)
             
-        | SynPat.InstanceMember(thisId, memberId, toolId, vis2, _) -> 
+        | SynPat.InstanceMember(thisId, memberId, toolId, isInline, vis2, _) -> 
             AnalyzeRecursiveInstanceMemberDecl 
                 (cenv, envinner, tpenv, declKind, 
                  synTyparDecls, valSynInfo, explicitTyparInfo, newslotsOK, 
                  overridesOK, vis1, thisId, memberId, toolId, 
                  bindingAttribs, vis2, tcrefContainerInfo, 
-                 memberFlagsOpt, ty, bindingRhs, mBinding)
+                 memberFlagsOpt, ty, bindingRhs, mBinding, isInline)
 
         | _ -> error(Error(FSComp.SR.tcOnlySimplePatternsInLetRec(), mBinding))
 
@@ -10299,7 +10333,7 @@ and AnalyzeAndMakeAndPublishRecursiveValue
         (NormalizedRecBindingDefn(containerInfo, newslotsOK, declKind, binding)) =
 
     // Pull apart the inputs
-    let (NormalizedBinding(vis1, bindingKind, isInline, isMutable, bindingSynAttribs, bindingXmlDoc, synTyparDecls, valSynData, declPattern, bindingRhs, mBinding, spBind)) = binding
+    let (NormalizedBinding(vis1, bindingKind, bindingSynAttribs, bindingXmlDoc, synTyparDecls, valSynData, declPattern, bindingRhs, mBinding, spBind)) = binding
     let (NormalizedBindingRhs(_, _, bindingExpr)) = bindingRhs
     let (SynValData(memberFlagsOpt, valSynInfo, thisIdOpt)) = valSynData 
     let (ContainerInfo(altActualParent, tcrefContainerInfo)) = containerInfo
@@ -10312,22 +10346,20 @@ and AnalyzeAndMakeAndPublishRecursiveValue
     // Allocate the type inference variable for the inferred type
     let ty = NewInferenceType () 
         
-        
-    let inlineFlag = ComputeInlineFlag memberFlagsOpt isInline isMutable mBinding
-    if isMutable then errorR(Error(FSComp.SR.tcOnlyRecordFieldsAndSimpleLetCanBeMutable(), mBinding))
-
-
     // Typecheck the typar decls, if any
     let explicitTyparInfo, tpenv = TcBindingTyparDecls false cenv env tpenv synTyparDecls
     let (ExplicitTyparInfo(_, declaredTypars, _)) = explicitTyparInfo
     let envinner = AddDeclaredTypars CheckForDuplicateTypars declaredTypars env
     
     // OK, analyze the declaration and return lots of information about it
-    let envinner, tpenv, bindingId, toolIdOpt, memberInfoOpt, vis, vis2, safeThisValOpt, enclosingDeclaredTypars, baseValOpt, explicitTyparInfo, bindingRhs, declaredTypars = 
+    let envinner, tpenv, bindingId, toolIdOpt, memberInfoOpt, vis, vis2, safeThisValOpt, enclosingDeclaredTypars, baseValOpt, explicitTyparInfo, bindingRhs, declaredTypars, isInline, isMutable = 
 
         AnalyzeRecursiveDecl (cenv, envinner, tpenv, declKind, synTyparDecls, declaredTypars, thisIdOpt, valSynInfo, explicitTyparInfo, 
                               newslotsOK, overridesOK, vis1, declPattern, bindingAttribs, tcrefContainerInfo, 
                               memberFlagsOpt, ty, bindingRhs, mBinding)
+
+    let inlineInfo = ComputeInlineFlag memberFlagsOpt isInline isMutable mBinding
+    if isMutable then errorR(Error(FSComp.SR.tcOnlyRecordFieldsAndSimpleLetCanBeMutable(), mBinding))
 
     let optArgsOK = Option.isSome memberFlagsOpt
 
@@ -10344,10 +10376,11 @@ and AnalyzeAndMakeAndPublishRecursiveValue
     let partialValReprInfo = TranslateTopValSynInfo mBinding (TcAttributes cenv envinner) valSynInfo
     let topValInfo = UseSyntacticArity declKind prelimTyscheme partialValReprInfo
     let hasDeclaredTypars = not (List.isEmpty declaredTypars)
-    let prelimValScheme = ValScheme(bindingId, prelimTyscheme, topValInfo, memberInfoOpt, false, inlineFlag, NormalVal, vis, false, false, false, hasDeclaredTypars)
+    let prelimValScheme = ValScheme(bindingId, prelimTyscheme, topValInfo, memberInfoOpt, false, inlineInfo, false, NormalVal, vis, false, false, false, hasDeclaredTypars)
 
     // Check the literal r.h.s., if any
-    let _, literalValue = TcLiteral cenv ty envinner tpenv (bindingAttribs, bindingExpr)
+    let hasLiteralAttr = HasFSharpAttribute cenv.g cenv.g.attrib_LiteralAttribute bindingAttribs
+    let literalValue = TcLiteral cenv ty envinner tpenv (hasLiteralAttr, bindingExpr)
 
     let extraBindings, extraValues, tpenv, recBindIdx = 
        let extraBindings = 
@@ -10369,7 +10402,8 @@ and AnalyzeAndMakeAndPublishRecursiveValue
     
     let mangledId = ident(vspec.LogicalName, vspec.Range)
     // Reconstitute the binding with the unique name
-    let revisedBinding = NormalizedBinding (vis1, bindingKind, isInline, isMutable, bindingSynAttribs, bindingXmlDoc, synTyparDecls, valSynData, mkSynPatVar vis2 mangledId, bindingRhs, mBinding, spBind)
+    let mangledPat = mkSynPatVar2 vis2 isInline isMutable mangledId
+    let revisedBinding = NormalizedBinding (vis1, bindingKind, bindingSynAttribs, bindingXmlDoc, synTyparDecls, valSynData, mangledPat, bindingRhs, mBinding, spBind)
 
     // Create the RecursiveBindingInfo to use in later phases
     let rbinfo = 
@@ -10378,7 +10412,7 @@ and AnalyzeAndMakeAndPublishRecursiveValue
             | Some(MemberOrValContainerInfo(_, _, _, safeInitInfo, _)) -> safeInitInfo
             | _ -> NoSafeInitInfo
         
-        RecursiveBindingInfo(recBindIdx, containerInfo, enclosingDeclaredTypars, inlineFlag, vspec, explicitTyparInfo, partialValReprInfo, memberInfoOpt, baseValOpt, safeThisValOpt, safeInitInfo, vis, ty, declKind)
+        RecursiveBindingInfo(recBindIdx, containerInfo, enclosingDeclaredTypars, inlineInfo, vspec, explicitTyparInfo, partialValReprInfo, memberInfoOpt, baseValOpt, safeThisValOpt, safeInitInfo, vis, ty, declKind)
 
     let recBindIdx = recBindIdx + 1
 
@@ -10665,7 +10699,7 @@ and TcLetrecComputeAndGeneralizeGenericTyparsForBinding cenv denv freeInEnv (pgr
 
     let rbinfo = pgrbind.RecBindingInfo
     let vspec = rbinfo.Val
-    let (CheckedBindingInfo(inlineFlag, _, _, _, _, _, expr, _, _, m, _, _, _, _)) = pgrbind.CheckedBinding
+    let (CheckedBindingInfo(_, _, _, _, _, expr, _, _, m, _, _, _, _)) = pgrbind.CheckedBinding
     let (ExplicitTyparInfo(rigidCopyOfDeclaredTypars, declaredTypars, _)) = rbinfo.ExplicitTyparInfo
     let allDeclaredTypars = rbinfo.EnclosingDeclaredTypars @ declaredTypars
      
@@ -10685,8 +10719,14 @@ and TcLetrecComputeAndGeneralizeGenericTyparsForBinding cenv denv freeInEnv (pgr
     let maxInferredTypars = freeInTypeLeftToRight cenv.g false tau
 
     let canGeneralizeConstrained = GeneralizationHelpers.CanGeneralizeConstrainedTyparsForDecl rbinfo.DeclKind
-    let generalizedTypars = GeneralizationHelpers.ComputeAndGeneralizeGenericTypars (cenv, denv, m, freeInEnv, canInferTypars, canGeneralizeConstrained, inlineFlag, Some expr, allDeclaredTypars, maxInferredTypars, tau, isCtor)
+    let inlineInfo = ComputeOverallInlineFlagForGeneralization pgrbind.CheckedBinding
+    let generalizedTypars = GeneralizationHelpers.ComputeAndGeneralizeGenericTypars (cenv, denv, m, freeInEnv, canInferTypars, canGeneralizeConstrained, inlineInfo, Some expr, allDeclaredTypars, maxInferredTypars, tau, isCtor)
     generalizedTypars
+
+and ComputeOverallInlineFlagForGeneralization (CheckedBindingInfo(nameToPrelimValSchemeMap=valMap)) =
+    if valMap |> NameMap.forall (fun _ (PrelimValScheme1(inlineInfo=inl)) -> inl = ValInline.Always) then ValInline.Always 
+    elif valMap |> NameMap.forall (fun _ (PrelimValScheme1(inlineInfo=inl)) -> inl = ValInline.Optional) then ValInline.Optional
+    else ValInline.Never
 
 /// Compute the type variables which may have member constraints that need to be canonicalized prior to generalization 
 and TcLetrecComputeSupportForBinding cenv (pgrbind: PreGeneralizationRecursiveBinding) =
@@ -10702,15 +10742,15 @@ and TcLetrecComputeSupportForBinding cenv (pgrbind: PreGeneralizationRecursiveBi
 // Generalise generalizedTypars from checkedBind.
 and TcLetrecGeneralizeBinding cenv denv generalizedTypars (pgrbind: PreGeneralizationRecursiveBinding) : PostGeneralizationRecursiveBinding =
 
-    let (RecursiveBindingInfo(_, _, enclosingDeclaredTypars, _, vspec, explicitTyparInfo, partialValReprInfo, memberInfoOpt, _, _, _, vis, _, declKind)) = pgrbind.RecBindingInfo
-    let (CheckedBindingInfo(inlineFlag, _, _, _, _, _, expr, argAttribs, _, _, _, compgen, _, isFixed)) = pgrbind.CheckedBinding
+    let (RecursiveBindingInfo(_, _, enclosingDeclaredTypars, inlineInfo, vspec, explicitTyparInfo, partialValReprInfo, memberInfoOpt, _, _, _, vis, _, declKind)) = pgrbind.RecBindingInfo
+    let (CheckedBindingInfo(_, _, _, _, _, expr, argAttribs, _, _, _, compgen, _, isFixed)) = pgrbind.CheckedBinding
      
     if isFixed then 
         errorR(Error(FSComp.SR.tcFixedNotAllowed(), expr.Range))
 
     let _, tau = vspec.TypeScheme
 
-    let pvalscheme1 = PrelimValScheme1(vspec.Id, explicitTyparInfo, tau, Some partialValReprInfo, memberInfoOpt, false, inlineFlag, NormalVal, argAttribs, vis, compgen)
+    let pvalscheme1 = PrelimValScheme1(vspec.Id, explicitTyparInfo, tau, Some partialValReprInfo, memberInfoOpt, false, inlineInfo, false, NormalVal, argAttribs, vis, compgen)
     let pvalscheme2 = GeneralizeVal cenv denv enclosingDeclaredTypars generalizedTypars pvalscheme1
 
     let valscheme = UseCombinedArity cenv.g declKind expr pvalscheme2 
@@ -10898,7 +10938,7 @@ and TcLetrec overridesOK cenv env tpenv (binds, bindsm, scopem) =
 
 let TcAndPublishValSpec (cenv, env, containerInfo: ContainerInfo, declKind, memFlagsOpt, tpenv, valSpfn) = 
 
-  let (SynValSig (Attributes synAttrs, _, SynValTyparDecls (synTypars, synCanInferTypars, _), _, _, isInline, mutableFlag, doc, vis, literalExprOpt, m)) = valSpfn 
+  let (SynValSig (Attributes synAttrs, _, SynValTyparDecls (synTypars, synCanInferTypars, _), _, _, isInline, isMutable, doc, vis, literalExprOpt, m)) = valSpfn 
 
   GeneralizationHelpers.CheckDeclaredTyparsPermitted(memFlagsOpt, synTypars, m)
   let canInferTypars = GeneralizationHelpers.ComputeCanInferExtraGeneralizableTypars (containerInfo.ParentRef, synCanInferTypars, memFlagsOpt)
@@ -10915,7 +10955,7 @@ let TcAndPublishValSpec (cenv, env, containerInfo: ContainerInfo, declKind, memF
 
             let (ValSpecResult (altActualParent, memberInfoOpt, id, enclosingDeclaredTypars, declaredTypars, ty, partialValReprInfo, declKind)) = valSpecResult
             
-            let inlineFlag = ComputeInlineFlag (memberInfoOpt |> Option.map (fun (PreValMemberInfo(memberInfo, _, _)) -> memberInfo.MemberFlags)) isInline mutableFlag m
+            let inlineInfo = ComputeInlineFlag (memberInfoOpt |> Option.map (fun (PreValMemberInfo(memberInfo, _, _)) -> memberInfo.MemberFlags)) isInline isMutable m
             
             let freeInType = freeInTypeLeftToRight cenv.g false ty
 
@@ -10925,10 +10965,10 @@ let TcAndPublishValSpec (cenv, env, containerInfo: ContainerInfo, declKind, memF
             
             let generalizedTypars =
                 GeneralizationHelpers.ComputeAndGeneralizeGenericTypars(cenv, denv, id.idRange,
-                    emptyFreeTypars, canInferTypars, CanGeneralizeConstrainedTypars, inlineFlag,
+                    emptyFreeTypars, canInferTypars, CanGeneralizeConstrainedTypars, inlineInfo,
                     None, allDeclaredTypars, freeInType, ty, false)
             
-            let valscheme1 = PrelimValScheme1(id, explicitTyparInfo, ty, Some partialValReprInfo, memberInfoOpt, mutableFlag, inlineFlag, NormalVal, noArgOrRetAttribs, vis, false)
+            let valscheme1 = PrelimValScheme1(id, explicitTyparInfo, ty, Some partialValReprInfo, memberInfoOpt, isMutable, inlineInfo, false, NormalVal, noArgOrRetAttribs, vis, false)
 
             let valscheme2 = GeneralizeVal cenv denv enclosingDeclaredTypars generalizedTypars valscheme1
 
@@ -10945,7 +10985,8 @@ let TcAndPublishValSpec (cenv, env, containerInfo: ContainerInfo, declKind, memF
                     None
                 
                 | Some e -> 
-                    let hasLiteralAttr, literalValue = TcLiteral cenv ty env tpenv (attrs, e)
+                    let hasLiteralAttr = HasFSharpAttribute cenv.g cenv.g.attrib_LiteralAttribute attrs
+                    let literalValue = TcLiteral cenv ty env tpenv (hasLiteralAttr, e)
                     if not hasLiteralAttr then 
                         errorR(Error(FSComp.SR.tcValueInSignatureRequiresLiteralAttribute(), e.Range))
                     literalValue
@@ -10957,7 +10998,7 @@ let TcAndPublishValSpec (cenv, env, containerInfo: ContainerInfo, declKind, memF
 
             let doc = doc.ToXmlDoc(true, paramNames)
             let vspec = MakeAndPublishVal cenv env (altActualParent, true, declKind, ValNotInRecScope, valscheme, attrs, doc, literalValue, false)
-            assert(vspec.InlineInfo = inlineFlag)
+            assert(vspec.InlineInfo = inlineInfo)
 
             vspec, tpenv)
 

@@ -1226,7 +1226,7 @@ let mkCond spBind spTarget m ty e1 e2 e3 = primMkCond spBind spTarget spTarget m
 let exprForValRef m vref = Expr.Val (vref, NormalValUse, m)
 let exprForVal m v = exprForValRef m (mkLocalValRef v)
 let mkLocalAux m s ty mut compgen =
-    let thisv = Construct.NewVal(s, m, None, ty, mut, compgen, None, taccessPublic, ValNotInRecScope, None, NormalVal, [], ValInline.Optional, XmlDoc.Empty, false, false, false, false, false, false, None, ParentNone) 
+    let thisv = Construct.NewVal(s, m, None, ty, mut, compgen, None, taccessPublic, ValNotInRecScope, None, NormalVal, [], ValInline.Optional, false, XmlDoc.Empty, false, false, false, false, false, false, None, ParentNone) 
     thisv, exprForVal m thisv
 
 let mkLocal m s ty = mkLocalAux m s ty Immutable false

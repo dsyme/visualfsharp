@@ -314,7 +314,7 @@ let internalError str = raise(Failure(str))
 
 let mkLocalVal m name ty topValInfo =
     let compgen    = false
-    Construct.NewVal(name, m, None, ty, Immutable, compgen, topValInfo, taccessPublic, ValNotInRecScope, None, NormalVal, [], ValInline.Optional, XmlDoc.Empty, false, false, false, false, false, false, None, ParentNone) 
+    Construct.NewVal(name, m, None, ty, Immutable, compgen, topValInfo, taccessPublic, ValNotInRecScope, None, NormalVal, [], ValInline.Optional, false, XmlDoc.Empty, false, false, false, false, false, false, None, ParentNone) 
 
 /// Represents inferred information about a tuple value
 type TupleStructure = 

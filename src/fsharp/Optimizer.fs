@@ -457,6 +457,8 @@ let rec IsPartialExprVal x =
 let CheckInlineValueIsComplete (v: Val) res =
     if v.MustInline && IsPartialExprVal res then
         errorR(Error(FSComp.SR.optValueMarkedInlineButIncomplete(v.DisplayName), v.Range))
+    if v.InlineIfLambda && IsPartialExprVal res then
+        printfn "%s" ("the InlineIfLambda value '"+v.LogicalName+"' was not inferred to have a known value at " + v.Range.ToString())
         //System.Diagnostics.Debug.Assert(false, sprintf "Break for incomplete inline value %s" v.DisplayName)
 
 let check (vref: ValRef) (res: ValInfo) =
@@ -2124,7 +2126,7 @@ and OptimizeExprOpReductionsAfter cenv env (op, tyargs, argsR, arginfos, m) =
         | _ -> None
     match knownValue with 
     | Some valu -> 
-        match TryOptimizeVal cenv env (false, valu, m) with 
+        match TryOptimizeVal cenv env (false, false, valu, m) with 
         | Some res -> OptimizeExpr cenv env res (* discard e1 since guard ensures it has no effects *)
         | None -> OptimizeExprOpFallback cenv env (op, tyargs, argsR, m) arginfos valu
     | None -> OptimizeExprOpFallback cenv env (op, tyargs, argsR, m) arginfos UnknownValue
@@ -2479,7 +2481,7 @@ and OptimizeTraitCall cenv env (traitInfo, args, m) =
 
 /// Make optimization decisions once we know the optimization information
 /// for a value
-and TryOptimizeVal cenv env (mustInline, valInfoForVal, m) = 
+and TryOptimizeVal cenv env (mustInline, inlineIfLambda, valInfoForVal, m) = 
 
     match valInfoForVal with 
     // Inline all constants immediately 
@@ -2487,20 +2489,20 @@ and TryOptimizeVal cenv env (mustInline, valInfoForVal, m) =
         Some (Expr.Const (c, m, ty))
 
     | SizeValue (_, detail) ->
-        TryOptimizeVal cenv env (mustInline, detail, m) 
+        TryOptimizeVal cenv env (mustInline, inlineIfLambda, detail, m) 
 
     | ValValue (vR, detail) -> 
          // Inline values bound to other values immediately 
          // Prefer to inline using the more specific info if possible 
          // If the more specific info didn't reveal an inline then use the value 
-         match TryOptimizeVal cenv env (mustInline, detail, m) with 
+         match TryOptimizeVal cenv env (mustInline, inlineIfLambda, detail, m) with 
           | Some e -> Some e
           | None -> Some(exprForValRef m vR)
 
     | ConstExprValue(_size, expr) ->
         Some (remarkExpr m (copyExpr cenv.g CloneAllAndMarkExprValsAsCompilerGenerated expr))
 
-    | CurriedLambdaValue (_, _, _, expr, _) when mustInline ->
+    | CurriedLambdaValue (_, _, _, expr, _) when mustInline || inlineIfLambda ->
         Some (remarkExpr m (copyExpr cenv.g CloneAllAndMarkExprValsAsCompilerGenerated expr))
 
     | TupleValue _ | UnionCaseValue _ | RecdValue _ when mustInline ->
@@ -2514,7 +2516,7 @@ and TryOptimizeVal cenv env (mustInline, valInfoForVal, m) =
     | _ -> None 
   
 and TryOptimizeValInfo cenv env m vinfo = 
-    if vinfo.HasEffect then None else TryOptimizeVal cenv env (false, vinfo.Info, m)
+    if vinfo.HasEffect then None else TryOptimizeVal cenv env (false, false, vinfo.Info, m)
 
 /// Add 'v1 = v2' information into the information stored about a value
 and AddValEqualityInfo g m (v: ValRef) info =
@@ -2531,7 +2533,7 @@ and AddValEqualityInfo g m (v: ValRef) info =
 and OptimizeVal cenv env expr (v: ValRef, m) =
     let valInfoForVal = GetInfoForVal cenv env m v 
 
-    match TryOptimizeVal cenv env (v.MustInline, valInfoForVal.ValExprInfo, m) with
+    match TryOptimizeVal cenv env (v.MustInline, v.InlineIfLambda, valInfoForVal.ValExprInfo, m) with
     | Some e -> 
        // don't reoptimize inlined lambdas until they get applied to something
        match e with 
@@ -2549,6 +2551,8 @@ and OptimizeVal cenv env expr (v: ValRef, m) =
 
     | None -> 
        if v.MustInline then error(Error(FSComp.SR.optFailedToInlineValue(v.DisplayName), m))
+       if v.InlineIfLambda then 
+           printfn "%s" ("the inline-if-lambda value '"+v.LogicalName+"' could not be inlined at " + m.ToString())
        expr, (AddValEqualityInfo cenv.g m v 
                     { Info=valInfoForVal.ValExprInfo 
                       HasEffect=false 
@@ -3221,7 +3225,7 @@ and OptimizeBinding cenv isRec env (TBind(vref, expr, spBind)) =
         
         let exprOptimized, einfo = 
             let env = if vref.IsCompilerGenerated && Option.isSome env.latestBoundId then env else {env with latestBoundId=Some vref.Id} 
-            let cenv = if vref.InlineInfo = ValInline.PseudoVal then { cenv with optimizing=false} else cenv 
+            let cenv = if vref.InlineInfo.MustInline then { cenv with optimizing=false} else cenv 
             let arityInfo = InferArityOfExprBinding cenv.g AllowTypeDirectedDetupling.No vref expr
             let exprOptimized, einfo = OptimizeLambdas (Some vref) cenv env arityInfo expr vref.Type 
             let size = localVarSize 
@@ -3250,10 +3254,10 @@ and OptimizeBinding cenv isRec env (TBind(vref, expr, spBind)) =
             | UnknownValue | ConstValue _ | ConstExprValue _ -> ivalue
             | SizeValue(_, a) -> MakeSizedValueInfo (cut a) 
 
-        let einfo = if vref.MustInline then einfo else {einfo with Info = cut einfo.Info } 
+        let einfo = if vref.MustInline || vref.InlineIfLambda then einfo else {einfo with Info = cut einfo.Info } 
 
         let einfo = 
-            if (not vref.MustInline && not (cenv.settings.KeepOptimizationValues())) ||
+            if (not vref.MustInline && not vref.InlineIfLambda && not (cenv.settings.KeepOptimizationValues())) ||
                
                // Bug 4916: do not record inline data for initialization trigger expressions
                // Note: we can't eliminate these value infos at the file boundaries because that would change initialization
@@ -3302,6 +3306,8 @@ and OptimizeBinding cenv isRec env (TBind(vref, expr, spBind)) =
             else einfo 
         if vref.MustInline && IsPartialExprVal einfo.Info then 
             errorR(InternalError("the mustinline value '"+vref.LogicalName+"' was not inferred to have a known value", vref.Range))
+        if vref.InlineIfLambda && IsPartialExprVal einfo.Info then 
+            printfn "%s" ("the inline-if-lambda value '"+vref.LogicalName+"' was not inferred to have a known value at " + vref.Range.ToString())
         
         let env = BindInternalLocalVal cenv vref (mkValInfo einfo vref) env 
         (TBind(vref, exprOptimized, spBind), einfo), env

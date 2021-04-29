@@ -394,8 +394,6 @@ type NormalizedBinding =
   | NormalizedBinding of 
       visibility: SynAccess option *
       kind: SynBindingKind *
-      mustInline: bool *
-      isMutable: bool *
       attribs: SynAttribute list * 
       xmlDoc: XmlDoc *
       typars: SynValTyparDecls * 
@@ -411,7 +409,7 @@ type RecursiveBindingInfo =
           recBindIndex: int * // index of the binding in the recursive group
           containerInfo: ContainerInfo * 
           enclosingDeclaredTypars: Typars * 
-          inlineFlag: ValInline * 
+          inlineInfo: ValInline * 
           vspec: Val * 
           explicitTyparInfo: ExplicitTyparInfo * 
           partialValReprInfo: PartialValReprInfo * 
@@ -445,6 +443,7 @@ type ValScheme =
         memberInfo: PreValMemberInfo option * 
         isMutable: bool *
         inlineInfo: ValInline * 
+        inlineIfLambda: bool * 
         baseOrThisInfo: ValBaseOrThisInfo * 
         visibility: SynAccess option * 
         compgen: bool *

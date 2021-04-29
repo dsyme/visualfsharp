@@ -115,11 +115,13 @@ let RepresentBindingAsStateVar (bind: Binding) (res2: StateMachineConversionFirs
 //    let code = (fun ...)
 //    (__resumableStateMachine code).Start()
 
-let isExpandVar (v: Val) = 
+let isExpandVar g (v: Val) = 
     let nm = v.LogicalName
     (nm.StartsWith expansionFunctionPrefix
      || nm.StartsWith "builder@" 
-     || (v.BaseOrThisInfo = MemberThisVal)) &&
+     || (v.BaseOrThisInfo = MemberThisVal)
+     // Anything of ResumableCode type
+     || (let ty = v.Type in isAppTy g ty && HasFSharpAttribute g g.attrib_ResumableCodeAttribute (tcrefOfAppTy g ty).Attribs)) &&
     not v.IsCompiledAsTopLevel
 
 type env = 
@@ -139,7 +141,7 @@ type env =
 /// This is run on every expression during codegen so we have to be a little careful about performance.
 let rec IsPossibleStateMachineExpr g overallExpr = 
     match overallExpr with
-    | Expr.Let (macroBind, bodyExpr, _, _) when isExpandVar macroBind.Var -> IsPossibleStateMachineExpr g bodyExpr
+    | Expr.Let (macroBind, bodyExpr, _, _) when isExpandVar g macroBind.Var -> IsPossibleStateMachineExpr g bodyExpr
     // Recognise 'if useResumableCode ...'
     | IfUseResumableStateMachinesExpr g _ -> true
     | Expr.App (_, _, _, (RefStateMachineExpr g _ :: _), _) -> true
@@ -159,7 +161,7 @@ let ConvertStateMachineExprToObject g overallExpr =
 
         match expr with
         // Bind 'let __expand_ABC = bindExpr in bodyExpr'
-        | Expr.Let (macroBind, bodyExpr, _, _) when isExpandVar macroBind.Var -> 
+        | Expr.Let (macroBind, bodyExpr, _, _) when isExpandVar g macroBind.Var -> 
             if sm_verbose then printfn "binding %A --> %A..." macroBind.Var macroBind.Expr
             let envR = { env with Macros = env.Macros.Add macroBind.Var macroBind.Expr }
             BindMacros envR bodyExpr
@@ -543,7 +545,7 @@ let ConvertStateMachineExprToObject g overallExpr =
                 | _ -> None
 
             // The expanded code for state machines should not normally contain try/finally as any resumptions will repeatedly execute the finally.
-            // Hoever we include the synchronous version of the construct here for completeness.
+            // However we include the synchronous version of the construct here for completeness.
             | TryFinallyExpr (sp1, sp2, ty, e1, e2, m) ->
                 if sm_verbose then printfn "TryFinallyExpr" 
                 let res1 = ConvertStateMachineCode env pcValInfo e1
@@ -567,7 +569,8 @@ let ConvertStateMachineExprToObject g overallExpr =
                         |> Some
                 | _ -> None
 
-            // The expanded code for state machines may use for loops....
+            // The expanded code for state machines may use for loops, however the
+            // body must be synchronous.
             | ForLoopExpr (sp1, sp2, e1, e2, v, e3, m) ->
                 if sm_verbose then printfn "ForLoopExpr" 
                 let res1 = ConvertStateMachineCode env pcValInfo e1
@@ -774,8 +777,8 @@ let ConvertStateMachineExprToObject g overallExpr =
     match overallExpr with
     | ExpandedStateMachineInContext (env, remake, pcExprOpt, codeExpr, m) ->
         let frees = (freeInExpr CollectLocals overallExpr).FreeLocals
-        if frees |> Zset.exists isExpandVar then 
-            let nonfree = frees |> Zset.elements |> List.filter  isExpandVar |> List.map (fun v -> v.DisplayName) |> String.concat ","
+        if frees |> Zset.exists (isExpandVar g) then 
+            let nonfree = frees |> Zset.elements |> List.filter (isExpandVar g) |> List.map (fun v -> v.DisplayName) |> String.concat ","
             if sm_verbose then 
                 printfn "Abandoning: The macro variables %s have not been expanded in state machine expansion at %A..." nonfree m
             None

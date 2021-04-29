@@ -51,9 +51,9 @@ let mkSynIdGetWithAlt m id altInfo =
     | None -> SynExpr.Ident id
     | _ -> SynExpr.LongIdent (false, LongIdentWithDots([id], []), altInfo, m)
 
-let mkSynSimplePatVar isOpt id = SynSimplePat.Id (id, None, false, false, isOpt, id.idRange)
+let mkSynSimplePatVar isOpt id = SynSimplePat.Id (id, None, false, false, false, false, isOpt, id.idRange)
 
-let mkSynCompGenSimplePatVar id = SynSimplePat.Id (id, None, true, false, false, id.idRange)
+let mkSynCompGenSimplePatVar id = SynSimplePat.Id (id, None, true, false, false, false, false, id.idRange)
 
 /// Match a long identifier, including the case for single identifiers which gets a more optimized node in the syntax tree.
 let (|LongOrSingleIdent|_|) inp =
@@ -92,16 +92,18 @@ let mkSynAnonField (ty: SynType) = SynField([], false, None, ty, false, PreXmlDo
 
 let mkSynNamedField (ident, ty: SynType, m) = SynField([], false, Some ident, ty, false, PreXmlDoc.Empty, None, m)
 
-let mkSynPatVar vis (id: Ident) = SynPat.Named (SynPat.Wild id.idRange, id, false, vis, id.idRange)
+let mkSynPatVar vis (id: Ident) = SynPat.Named (None, id, false, false, false, vis, id.idRange)
 
-let mkSynThisPatVar (id: Ident) = SynPat.Named (SynPat.Wild id.idRange, id, true, None, id.idRange)
+let mkSynPatVar2 vis isInline isMutable (id: Ident) = SynPat.Named (None, id, false, isInline, isMutable, vis, id.idRange)
 
-let mkSynPatMaybeVar lidwd vis m =  SynPat.LongIdent (lidwd, None, None, SynArgPats.Pats [], vis, m)
+let mkSynThisPatVar (id: Ident) = SynPat.Named (None, id, true, false, false, None, id.idRange)
+
+let mkSynPatMaybeVar lidwd vis m =  SynPat.LongIdent (lidwd, None, None, false, false, SynArgPats.Pats [], vis, m)
 
 /// Extract the argument for patterns corresponding to the declaration of 'new ... = ...'
 let (|SynPatForConstructorDecl|_|) x =
     match x with
-    | SynPat.LongIdent (LongIdentWithDots([_], _), _, _, SynArgPats.Pats [arg], _, _) -> Some arg
+    | SynPat.LongIdent (LongIdentWithDots([_], _), _, _, _, _, SynArgPats.Pats [arg], _, _) -> Some arg
     | _ -> None
 
 /// Recognize the '()' in 'new()'
@@ -139,12 +141,12 @@ let rec SimplePatOfPat (synArgNameGenerator: SynArgNameGenerator) p =
         SynSimplePat.Attrib(p2, attribs, m),
         laterF
 
-    | SynPat.Named (SynPat.Wild _, v, thisV, _, m) ->
-        SynSimplePat.Id (v, None, false, thisV, false, m),
+    | SynPat.Named (None, v, isThisVal, isInline, isMutable, _, m) ->
+        SynSimplePat.Id (v, None, false, isThisVal, isInline, isMutable, false, m),
         None
 
     | SynPat.OptionalVal (v, m) ->
-        SynSimplePat.Id (v, None, false, false, true, m),
+        SynSimplePat.Id (v, None, false, false, false, false, true, m),
         None
 
     | SynPat.Paren (p, _) -> SimplePatOfPat synArgNameGenerator p
@@ -153,26 +155,26 @@ let rec SimplePatOfPat (synArgNameGenerator: SynArgNameGenerator) p =
 
     | _ ->
         let m = p.Range
-        let isCompGen, altNameRefCell, id, item =
+        let isCompGen, altNameRefCell, isInline, isMutable, ident, item =
             match p with
-            | SynPat.LongIdent(LongIdentWithDots([id], _), _, None, SynArgPats.Pats [], None, _) ->
+            | SynPat.LongIdent(LongIdentWithDots([ident], _), _, None, isInline, isMutable, SynArgPats.Pats [], None, _) ->
                 // The pattern is 'V' or some other capitalized identifier.
                 // It may be a real variable, in which case we want to maintain its name.
                 // But it may also be a nullary union case or some other identifier.
                 // In this case, we want to use an alternate compiler generated name for the hidden variable.
                 let altNameRefCell = Some (ref (SynSimplePatAlternativeIdInfo.Undecided (mkSynId m (synArgNameGenerator.New()))))
-                let item = mkSynIdGetWithAlt m id altNameRefCell
-                false, altNameRefCell, id, item
-            | SynPat.Named(_, ident, _, _, _) ->
+                let item = mkSynIdGetWithAlt m ident altNameRefCell
+                false, altNameRefCell, isInline, isMutable, ident, item
+            | SynPat.Named(_, ident, _, isInline, isMutable, _, _) ->
                 // named pats should be referred to as their name in docs, tooltips, etc.
                 let item = mkSynIdGet m ident.idText
-                false, None, ident, item
+                false, None, isInline, isMutable, ident, item
             | _ ->
                 let nm = synArgNameGenerator.New()
-                let id = mkSynId m nm
+                let ident = mkSynId m nm
                 let item = mkSynIdGet m nm
-                true, None, id, item
-        SynSimplePat.Id (id, altNameRefCell, isCompGen, false, false, id.idRange),
+                true, None, false, false, ident, item
+        SynSimplePat.Id (ident, altNameRefCell, isCompGen, false, isInline, isMutable, false, ident.idRange),
         Some (fun e ->
                 let clause = SynMatchClause(p, None, e, m, DebugPointForTarget.No)
                 SynExpr.Match (DebugPointAtBinding.NoneAtInvisible, item, [clause], clause.Range))
@@ -453,7 +455,7 @@ module SynInfo =
     /// Infer the syntactic argument info for a single argument from a simple pattern.
     let rec InferSynArgInfoFromSimplePat attribs p =
         match p with
-        | SynSimplePat.Id(nm, _, isCompGen, _, isOpt, _) ->
+        | SynSimplePat.Id(nm, _, isCompGen, _, _, _, isOpt, _) ->
            SynArgInfo(attribs, isOpt, (if isCompGen then None else Some nm))
         | SynSimplePat.Typed(a, _, _) -> InferSynArgInfoFromSimplePat attribs a
         | SynSimplePat.Attrib(a, attribs2, _) -> InferSynArgInfoFromSimplePat (attribs @ attribs2) a
@@ -512,12 +514,12 @@ module SynInfo =
 
         let infosForExplicitArgs =
             match pat with
-            | Some(SynPat.LongIdent(_, _, _, SynArgPats.Pats curriedArgs, _, _)) -> List.map InferSynArgInfoFromPat curriedArgs
+            | Some(SynPat.LongIdent(_, _, _, _, _, SynArgPats.Pats curriedArgs, _, _)) -> List.map InferSynArgInfoFromPat curriedArgs
             | _ -> []
 
         let explicitArgsAreSimple =
             match pat with
-            | Some(SynPat.LongIdent(_, _, _, SynArgPats.Pats curriedArgs, _, _)) -> List.forall isSimplePattern curriedArgs
+            | Some(SynPat.LongIdent(_, _, _, _, _, SynArgPats.Pats curriedArgs, _, _)) -> List.forall isSimplePattern curriedArgs
             | _ -> true
 
         let retInfo = InferSynReturnData retInfo
@@ -547,10 +549,10 @@ let mkSynBindingRhs staticOptimizations rhsExpr mRhs retInfo =
         | None -> rhsExpr, None
     rhsExpr, retTyOpt
 
-let mkSynBinding (xmlDoc, headPat) (vis, isInline, isMutable, mBind, spBind, retInfo, origRhsExpr, mRhs, staticOptimizations, attrs, memberFlagsOpt) =
+let mkSynBinding (xmlDoc, headPat) (vis, mBind, spBind, retInfo, origRhsExpr, mRhs, staticOptimizations, attrs, memberFlagsOpt) =
     let info = SynInfo.InferSynValData (memberFlagsOpt, Some headPat, retInfo, origRhsExpr)
     let rhsExpr, retTyOpt = mkSynBindingRhs staticOptimizations origRhsExpr mRhs retInfo
-    SynBinding (vis, SynBindingKind.Normal, isInline, isMutable, attrs, xmlDoc, info, headPat, retTyOpt, rhsExpr, mBind, spBind)
+    SynBinding (vis, SynBindingKind.Normal, attrs, xmlDoc, info, headPat, retTyOpt, rhsExpr, mBind, spBind)
 
 let NonVirtualMemberFlags k : SynMemberFlags =
     { MemberKind=k
@@ -599,7 +601,7 @@ let inferredTyparDecls = SynValTyparDecls([], true, [])
 let noInferredTypars = SynValTyparDecls([], false, [])
 
 let rec synExprContainsError inpExpr =
-    let rec walkBind (SynBinding(_, _, _, _, _, _, _, _, _, synExpr, _, _)) = walkExpr synExpr
+    let rec walkBind (SynBinding(_, _, _, _, _, _, _, synExpr, _, _)) = walkExpr synExpr
 
     and walkExprs es = es |> List.exists walkExpr
 
@@ -731,3 +733,4 @@ let rec synExprContainsError inpExpr =
                       | SynInterpolatedStringPart.FillExpr (x, _) -> Some x))
 
     walkExpr inpExpr
+

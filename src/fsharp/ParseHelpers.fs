@@ -6,6 +6,7 @@ open FSharp.Compiler.AbstractIL
 open FSharp.Compiler.ErrorLogger
 open FSharp.Compiler.Features
 open FSharp.Compiler.Syntax
+open FSharp.Compiler.Syntax.PrettyNaming
 open FSharp.Compiler.SyntaxTreeOps
 open FSharp.Compiler.UnicodeLexing
 open FSharp.Compiler.Text
@@ -13,6 +14,7 @@ open FSharp.Compiler.Text.Position
 open FSharp.Compiler.Text.Range
 open Internal.Utilities.Text.Lexing
 open Internal.Utilities.Text.Parsing
+open Internal.Utilities.Library
 
 //------------------------------------------------------------------------
 // Parsing: Error recovery exception for fsyacc

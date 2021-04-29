@@ -1063,7 +1063,7 @@ let internal mkBoundValueTypedImpl tcGlobals m moduleName name ty =
     let v =
         Construct.NewVal
             (name, m, None, ty, ValMutability.Immutable,
-             false, Some(ValReprInfo([], [], { Attribs = []; Name = None })), vis, ValNotInRecScope, None, NormalVal, [], ValInline.Optional,
+             false, Some(ValReprInfo([], [], { Attribs = []; Name = None })), vis, ValNotInRecScope, None, NormalVal, [], ValInline.Optional, false,
              XmlDoc.Empty, true, false, false, false, 
              false, false, None, Parent(TypedTreeBasics.ERefLocal moduleOrNamespace))
     mty <- ModuleOrNamespaceType(ModuleOrNamespaceKind.ModuleOrType, QueueList.one v, QueueList.empty)
@@ -1432,7 +1432,7 @@ type internal FsiDynamicCompiler
 
         let itID  = mkSynId m itName
         //let itExp = SynExpr.Ident itID
-        let mkBind pat expr = SynBinding (None, SynBindingKind.Do, false, (*mutable*)false, [], PreXmlDoc.Empty, SynInfo.emptySynValData, pat, None, expr, m, DebugPointAtBinding.NoneAtInvisible)
+        let mkBind pat expr = SynBinding (None, SynBindingKind.Do, [], PreXmlDoc.Empty, SynInfo.emptySynValData, pat, None, expr, m, DebugPointAtBinding.NoneAtInvisible)
         let bindingA = mkBind (mkSynPatVar None itID) expr (* let it = <expr> *)  // NOTE: the generalizability of 'expr' must not be damaged, e.g. this can't be an application 
         //let saverPath  = ["Microsoft";"FSharp";"Compiler";"Interactive";"RuntimeHelpers";"SaveIt"]
         //let dots = List.replicate (saverPath.Length - 1) m
@@ -2315,8 +2315,8 @@ type internal FsiInteractionProcessor
                 let isBreakable def = 
                     // only add automatic debugger breaks before 'let' or 'do' expressions with sequence points
                     match def with
-                    | SynModuleDecl.DoExpr (DebugPointAtBinding.Yes _, _, _)
-                    | SynModuleDecl.Let (_, SynBinding(_, _, _, _, _, _, _, _,_,_,_, DebugPointAtBinding.Yes _) :: _, _) -> true
+                    | SynModuleDecl.DoExpr (debugPoint=DebugPointAtBinding.Yes _)
+                    | SynModuleDecl.Let (_, SynBinding(debugPoint=DebugPointAtBinding.Yes _) :: _, _) -> true
                     | _ -> false
                 let defsA = Seq.takeWhile (isDefHash >> not) defs |> Seq.toList
                 let defsB = Seq.skipWhile (isDefHash >> not) defs |> Seq.toList

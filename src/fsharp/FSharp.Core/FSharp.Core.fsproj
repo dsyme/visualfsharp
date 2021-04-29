@@ -177,12 +177,12 @@
     <Compile Include="async.fs">
       <Link>Control/async.fs</Link>
     </Compile>
-    <Compile Include="tasks.fsi">
+    <!--<Compile Include="tasks.fsi">
       <Link>Control/tasks.fsi</Link>
     </Compile>
     <Compile Include="tasks.fs">
       <Link>Control/tasks.fs</Link>
-    </Compile>
+    </Compile>-->
     <Compile Include="eventmodule.fsi">
       <Link>Control/eventmodule.fsi</Link>
     </Compile>
