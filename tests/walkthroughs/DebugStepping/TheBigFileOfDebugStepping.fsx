@@ -639,18 +639,18 @@ module InlinedCode =
         let bodyWrapper =
             let x = 1 + System.Random().Next()
             bodyRunner 3 (fun n ->
-                // MANUAL TEST: check you can place breakpoint here and hit it in both Debug and Release code
+                // MANUAL TEST: check you can place breakpoint here and hit it in Debug code
                 printfn "line1, x = %d" x
-                // MANUAL TEST: check you can place breakpoint here and hit it in both Debug and Release code
+                // MANUAL TEST: check you can place breakpoint here and hit it in Debug code
                 printfn "line2, n = %d" n)
 
         let bodyWrapper2 =
-            // TEST: check you can place breakpoint here and hit it in both Debug and Release code
+            // TEST: check you can place breakpoint here and hit it in Debug code
             let x = 1 + System.Random().Next()
             bodyRunner 3 <| (fun n ->
-                // MANUAL TEST: check you can place breakpoint here and hit it in both Debug and Release code
+                // MANUAL TEST: check you can place breakpoint here and hit it in Debug code
                 printfn "line1, x = %d" x
-                // MANUAL TEST: check you can place breakpoint here and hit it in both Debug and Release code
+                // MANUAL TEST: check you can place breakpoint here and hit it in Debug code
                 printfn "line2, n = %d" n)
         ()
 
@@ -662,10 +662,10 @@ module Pipelined =
         let newData =
             data
             |> List.filter (fun x -> 
-                  // MANUAL TEST: check you can place breakpoint here and hit it in both Debug and Release code
+                  // MANUAL TEST: check you can place breakpoint here and hit it in Debug code
                   x > 3)
             |> List.map (fun x -> 
-                  // MANUAL TEST: check you can place breakpoint here and hit it in both Debug and Release code
+                  // MANUAL TEST: check you can place breakpoint here and hit it in Debug code
                   x * x)
         
         printfn "%A" newData
@@ -676,7 +676,7 @@ module Pipelined =
             let newData =
                 data
                 |> Array.filter (fun x -> 
-                    // MANUAL TEST: check you can place breakpoint here and hit it in both Debug and Release code
+                    // MANUAL TEST: check you can place breakpoint here and hit it in Debug code
                     x > 3)
                 |> Array.map (fun x -> 
                     // MANUAL TEST: check you can place breakpoint here and hit it in both Debug code
